@@ -22,3 +22,12 @@ void test(void);
 void play_stereo_harmony_demo(void);
 void play_stereo_melody_demo(void);
 
+// SD card commands
+void sd_status(void);
+void sd_mount_cmd(void);  // Renamed to avoid conflict with sd_mount() from sdcard.h
+void sd_list(void);
+void sd_read_file(void);
+void sd_read_filename(const char *filename);
+void sd_debug_cmd(void);
+void sd_dump_sector(void);
+

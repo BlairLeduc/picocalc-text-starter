@@ -9,6 +9,7 @@
 
 #include "drivers/southbridge.h"
 #include "drivers/audio.h"
+#include "drivers/sdcard.h"
 #include "songs.h"
 #include "tests.h"
 #include "commands.h"
@@ -24,6 +25,10 @@ static const command_t commands[] = {
     {"bye", bye, "Reboot into BOOTSEL mode"},
     {"cls", clearscreen, "Clear the screen"},
     {"play", play, "Play a song"},
+    {"dir", sd_list, "List files on SD card"},
+    {"mount", sd_mount_cmd, "Mount SD card"},
+    {"more", sd_read_file, "Page through a file"},
+    {"sd_status", sd_status, "Show SD card status"},
     {"songs", show_song_library, "Show song library"},
     {"test", test, "Run a test"},
     {"tests", show_test_library, "Show test library"},
@@ -115,6 +120,10 @@ void run_command(const char *command)
             if (strcmp(cmd_name, "play") == 0 && cmd_arg != NULL)
             {
                 play_named_song(cmd_arg);
+            }
+            else if (strcmp(cmd_name, "more") == 0 && cmd_arg != NULL)
+            {
+                sd_read_filename(cmd_arg);
             }
             else if (strcmp(cmd_name, "test") == 0 && cmd_arg != NULL)
             {
@@ -279,4 +288,196 @@ void test()
     printf("Error: No test specified.\n");
     printf("Usage: test <name>\n");
     printf("Use 'tests' command to see available\ntests.\n");
+}
+
+//
+// SD Card Commands
+//
+
+void sd_status()
+{
+    printf("SD Card Status:\n");
+    
+    if (!sd_card_present()) {
+        printf("  No SD card detected\n");
+        return;
+    }
+    
+    printf("  Card detected: Yes\n");
+    
+    sd_error_t result = sd_init();
+    if (result != SD_OK) {
+        printf("  Initialization: Failed (%s)\n", sd_error_string(result));
+        return;
+    }
+    
+    printf("  Initialization: OK\n");
+    
+    if (sd_is_mounted()) {
+        printf("  File system: Mounted\n");
+        fs_type_t fs_type = sd_get_fs_type();
+        const char* fs_name = "Unknown";
+        switch (fs_type) {
+            case FS_TYPE_FAT12: fs_name = "FAT12"; break;
+            case FS_TYPE_FAT16: fs_name = "FAT16"; break;
+            case FS_TYPE_FAT32: fs_name = "FAT32"; break;
+            default: break;
+        }
+        printf("  File system type: %s\n", fs_name);
+        
+        uint32_t total_space = sd_get_total_space();
+        printf("  Total space: %lu bytes\n", total_space);
+    } else {
+        printf("  File system: Not mounted\n");
+    }
+}
+
+void sd_mount_cmd()
+{
+    printf("Mounting SD card...\n");
+    
+    if (!sd_card_present()) {
+        printf("Error: No SD card detected\n");
+        return;
+    }
+    
+    sd_error_t result = sd_mount();
+    if (result == SD_OK) {
+        printf("SD card mounted successfully\n");
+        fs_type_t fs_type = sd_get_fs_type();
+        const char* fs_name = "Unknown";
+        switch (fs_type) {
+            case FS_TYPE_FAT12: fs_name = "FAT12"; break;
+            case FS_TYPE_FAT16: fs_name = "FAT16"; break;
+            case FS_TYPE_FAT32: fs_name = "FAT32"; break;
+            default: break;
+        }
+        printf("File system: %s\n", fs_name);
+    } else {
+        printf("Error: Failed to mount SD card (%s)\n", sd_error_string(result));
+    }
+}
+
+void sd_list()
+{
+    if (!sd_is_mounted()) {
+        printf("Error: SD card not mounted\n");
+        printf("Use 'mount' command first\n");
+        return;
+    }
+    
+    // Simple directory listing for root directory
+    sd_error_t result = sd_list_root_directory();
+    if (result != SD_OK) {
+        printf("Error listing directory: %s\n", sd_error_string(result));
+    }
+}
+
+void sd_read_file()
+{
+    printf("Error: No filename specified.\n");
+    printf("Usage: sd_read <filename>\n");
+    printf("Example: sd_read readme.txt\n");
+}
+
+void sd_read_filename(const char *filename)
+{
+    if (filename == NULL || strlen(filename) == 0) {
+        printf("Error: No filename specified.\n");
+        printf("Usage: sd_read <filename>\n");
+        printf("Example: sd_read readme.txt\n");
+        return;
+    }
+    // For demonstration, try to read a common filename
+    if (!sd_is_mounted()) {
+        printf("\nNote: SD card not mounted\n");
+        printf("Use 'mount' command first\n");
+        return;
+    }
+    
+    sd_file_t file;
+    sd_error_t result = sd_file_open(&file, filename);
+    
+    if (result != SD_OK) {
+        printf("Error: %s\n", sd_error_string(result));
+        return;
+    }
+    
+    // Read and display the file content with pagination
+    char buffer[1024];  // Read in larger chunks
+    size_t bytes_read;
+    uint32_t total_bytes_read = 0;
+    int line_count = 0;
+    bool user_quit = false;
+    
+    while (!user_quit && total_bytes_read < sd_file_size(&file)) {
+        result = sd_file_read(&file, buffer, sizeof(buffer) - 1, &bytes_read);
+        if (result != SD_OK || bytes_read == 0) {
+            if (result != SD_OK) {
+                printf("Error reading file: %s\n", sd_error_string(result));
+            }
+            break;
+        }
+        
+        buffer[bytes_read] = '\0';  // Null terminate
+        total_bytes_read += bytes_read;
+        
+        // Display the content line by line
+        char *line_start = buffer;
+        char *line_end;
+        
+        while ((line_end = strchr(line_start, '\n')) != NULL || line_start < buffer + bytes_read) {
+            if (line_end == NULL) {
+                // Last line without newline
+                printf("%s", line_start);
+                break;
+            }
+            
+            // Print the line (including newline)
+            *line_end = '\0';
+            printf("%s\n", line_start);
+            line_count++;
+            
+            // Check if we need to pause
+            if (line_count >= 31) {
+                printf("\nMore?");
+                char ch = getchar();
+                if (ch == 'q' || ch == 'Q') {
+                    user_quit = true;
+                    printf("\n");
+                    break;
+                }
+                printf("\n");
+                line_count = 0;
+            }
+            
+            line_start = line_end + 1;
+        }
+        
+        if (user_quit) break;
+    }
+    
+    sd_file_close(&file);
+}
+
+void sd_debug_cmd()
+{
+    printf("SD Card Debug Test\n");
+    printf("==================\n");
+    
+    sd_error_t result = sd_debug_init();
+    if (result == SD_OK) {
+        printf("Debug initialization successful!\n");
+        printf("Basic SPI communication is working.\n");
+    } else {
+        printf("Debug initialization failed: %s\n", sd_error_string(result));
+        printf("Check your wiring and card insertion.\n");
+    }
+}
+
+// SD dump sector command
+void sd_dump_sector(void) {
+    printf("Usage: This function needs to be called with a sector number\n");
+    printf("Dumping sector 0 (boot sector) as example:\n");
+    sd_debug_dump_sector(0);
 }

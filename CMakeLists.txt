@@ -58,6 +58,8 @@ add_executable(picocalc-text-starter
         drivers/onboard_led.h
         drivers/picocalc.c
         drivers/picocalc.h
+        drivers/sdcard.c
+        drivers/sdcard.h
         drivers/southbridge.c
         drivers/southbridge.h
         )
