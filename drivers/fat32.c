@@ -24,7 +24,7 @@
 // Global state
 static bool fat32_mounted = false;
 static fat32_error_t fat32_status = FAT32_OK; // Error code for mount operation
-bool fat32_initialised = false; // Set to true after successful file system initialization 
+bool fat32_initialised = false;               // Set to true after successful file system initialization
 
 // FAT32 file system state
 static fat32_boot_sector_t boot_sector;
@@ -313,8 +313,13 @@ fat32_error_t fat32_mount(void)
 void fat32_unmount(void)
 {
     fat32_mounted = false;
-    fat32_status = FAT32_OK; // Reset mount status
+    fat32_status = FAT32_ERROR_NO_CARD;
     volume_start_block = 0;
+    first_data_sector = 0;
+    data_region_sectors = 0;
+    cluster_count = 0;
+    bytes_per_cluster = 0;
+    current_dir_cluster = 0;
 }
 
 bool fat32_is_mounted(void)
@@ -324,13 +329,27 @@ bool fat32_is_mounted(void)
 
 bool fat32_is_ready(void)
 {
-    return fat32_initialised && fat32_mounted && sd_card_present();
+    if (sd_card_present())
+    {
+        if (!fat32_mounted)
+        {
+            fat32_status = fat32_mount();
+        }
+    }
+    else
+    {
+        if (fat32_mounted)
+        {
+            fat32_unmount(); // Unmount if card is not present
+        }
+        fat32_status = FAT32_ERROR_NO_CARD; // Set status to no card present
+    }
+    return fat32_status == FAT32_OK;
 }
-
-
 
 fat32_error_t fat32_get_status(void)
 {
+    fat32_is_ready();
     return fat32_status;
 }
 
@@ -802,16 +821,17 @@ fat32_error_t fat32_file_delete(const char *path)
 
 fat32_error_t fat32_set_current_dir(const char *path)
 {
+    if (!fat32_is_ready())
+    {
+        return fat32_status;
+    }
+
+    // If we can open the directory, it exists
     fat32_dir_t dir;
     fat32_error_t result = fat32_dir_open(&dir, path);
     if (result != FAT32_OK)
     {
         return result; // Directory not found or error
-    }
-
-    if (!dir.is_open)
-    {
-        return FAT32_ERROR_INVALID_PATH; // Directory not open
     }
 
     // Update current directory cluster and name
@@ -931,14 +951,14 @@ fat32_error_t fat32_dir_open(fat32_dir_t *dir, const char *path)
         return FAT32_ERROR_INVALID_PARAMETER;
     }
 
-    if (!fat32_is_ready())
-    {
-        return fat32_status;
-    }
-
     if (strlen(path) > FAT32_MAX_PATH_LEN)
     {
         return FAT32_ERROR_INVALID_PATH; // Path too long
+    }
+
+    if (!fat32_is_ready())
+    {
+        return fat32_status;
     }
 
     memset(dir, 0, sizeof(fat32_dir_t));
@@ -1007,23 +1027,19 @@ fat32_error_t fat32_dir_open(fat32_dir_t *dir, const char *path)
 
 fat32_error_t fat32_dir_read(fat32_dir_t *dir, fat32_entry_t *dir_entry)
 {
-    char long_filename[FAT32_MAX_FILENAME_LEN + 1];
-    uint8_t expected_checksum = 0;
-    uint32_t read_sector = 0xFFFFFFFF; // Invalid sector to start with
-
     if (!dir || !dir_entry)
     {
         return FAT32_ERROR_INVALID_PARAMETER;
     }
 
-    if (!fat32_is_ready())
-    {
-        return fat32_status;
-    }
-
     if (!dir->is_open)
     {
         return FAT32_ERROR_READ_FAILED;
+    }
+
+    if (!fat32_is_ready())
+    {
+        return fat32_status;
     }
 
     memset(dir_entry, 0, sizeof(fat32_dir_entry_t));
@@ -1033,6 +1049,10 @@ fat32_error_t fat32_dir_read(fat32_dir_t *dir, fat32_entry_t *dir_entry)
         // If we have already read the last entry, return end of directory
         return FAT32_OK;
     }
+
+    char long_filename[FAT32_MAX_FILENAME_LEN + 1];
+    uint8_t expected_checksum = 0;
+    uint32_t read_sector = 0xFFFFFFFF; // Invalid sector to start with
 
     long_filename[0] = '\0'; // Reset long filename buffer
 
@@ -1115,7 +1135,7 @@ fat32_error_t fat32_dir_read(fat32_dir_t *dir, fat32_entry_t *dir_entry)
             {
                 // End of cluster chain
                 dir->last_entry_read = true; // Mark that we reached the end
-                return FAT32_OK;                // No more entries to read
+                return FAT32_OK;             // No more entries to read
             }
             dir->current_cluster = next_cluster;
         }
@@ -1187,41 +1207,23 @@ const char *fat32_error_string(fat32_error_t error)
     }
 }
 
-
-// Timer callback to check SD card presence and mount/unmount
+// Timer callback to check SD card presence and unmount if removed
 bool on_sd_card_detect(repeating_timer_t *rt)
 {
-    static int delay_count = 2;
+    // All we need to do is check if the SD card is not present and
+    // if we have a mounted FAT32 file system, we will unmount it.
+    //
+    // This will cover the case if the SD card is changed as we mount
+    // the file system when it is needed.
 
-    // Check if SD card is present
     if (!sd_card_present() && fat32_is_mounted())
     {
-        fat32_unmount();    // Unmount if card is not present
-        delay_count = 2; // Reset retry count
-        return true;     // Continue timer
-    }
-
-    if (sd_card_present() && delay_count > 0)
-    {
-        // If card is present but not mounted, wait a bit before trying to mount
-        delay_count--;
-        return true; // Continue timer
-    }
-
-    if (sd_card_present() && !fat32_is_mounted() && fat32_status == FAT32_OK && delay_count <= 0)
-    {
-        delay_count = 2; // Reset retry count after successful mount
-        // Try to mount the SD card
-        fat32_status = fat32_mount();
-        if (fat32_status != FAT32_OK)
-        {
-            return true; // Continue timer
-        }
+        fat32_unmount();                    // Unmount if card is not present
+        fat32_status = FAT32_ERROR_NO_CARD; // Update status
     }
 
     return true;
 }
-
 
 void fat32_init(void)
 {
@@ -1234,17 +1236,10 @@ void fat32_init(void)
     sd_init();
 
     // Initialize the file system state
-    fat32_mounted = false;
-    fat32_status = FAT32_OK;
-    volume_start_block = 0;
-    first_data_sector = 0;
-    data_region_sectors = 0;
-    cluster_count = 0;
-    bytes_per_cluster = 0;
-    current_dir_cluster = 0;
+    fat32_unmount(); // Ensure we start unmounted
 
-        // Check if a SD card is present
+    // Check if a SD card is present
     add_repeating_timer_ms(500, on_sd_card_detect, NULL, &sd_card_detect_timer);
-    
+
     fat32_initialised = true;
 }

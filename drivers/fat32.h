@@ -113,11 +113,19 @@ typedef struct __attribute__((packed))
     uint32_t total_sectors_32;   // Total sectors (must be non-zero for FAT32)
 
     // FAT32 specific
-    uint32_t fat_size_32;  // Size of **each** FAT in sectors (must be non-zero)
-    uint16_t ext_flags;    // Extended flags (ignored)
-    uint16_t fat32_version;   // File system version (ignored)
-    uint32_t root_cluster; // First cluster of the root directory
-    uint16_t fat32_info;      // FSInfo sector number (usually 1)
+    uint32_t fat_size_32;   // Size of **each** FAT in sectors (must be non-zero)
+    uint16_t ext_flags;     // Extended flags (ignored)
+    uint16_t fat32_version; // File system version (ignored)
+    uint32_t root_cluster;  // First cluster of the root directory
+    uint16_t fat32_info;    // FSInfo sector number (usually 1)
+    uint16_t backup_boot;   // Backup boot sector number (usually 6)
+    uint8_t reserved[12];   // Reserved bytes (must be zero)
+    uint8_t drive_number;   // Drive number (ignored)
+    uint8_t reserved1;      // Reserved byte (ignored)
+    uint8_t boot_signature; // Boot signature (0x29)
+    uint32_t volume_id;     // Volume ID (ignored)
+    char volume_label[11];  // Volume label (ignored)
+    char file_system_type[8]; // File system type (should be "FAT32
 } fat32_boot_sector_t;
 
 // FAT32 FSInfo sector structure
