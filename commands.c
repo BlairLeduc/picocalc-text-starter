@@ -26,8 +26,10 @@ static const command_t commands[] = {
     {"bye", bye, "Reboot into BOOTSEL mode"},
     {"cls", clearscreen, "Clear the screen"},
     {"cd", cd, "Change directory"},
-    {"dir", dir, "List files on SD card"},
-    {"free", sd_free, "Show free space on SD card"},
+    {"dir", dir, "List files on the SD card"},
+    {"free", sd_free, "Show free space on the SD card"},
+    {"mkdir", sd_mkdir, "Create a new directory"},
+    {"mkfile", sd_mkfile, "Create a new file"},
     {"more", sd_more, "Page through a file"},
     {"play", play, "Play a song"},
     {"pwd", sd_pwd, "Print working directory"},
@@ -149,6 +151,14 @@ void run_command(const char *command)
             else if (strcmp(cmd_name, "cd") == 0 && cmd_arg != NULL)
             {
                 cd_dirname(cmd_arg);
+            }
+            else if (strcmp(cmd_name, "mkfile") == 0 && cmd_arg != NULL)
+            {
+                sd_mkfile_filename(cmd_arg);
+            }
+            else if (strcmp(cmd_name, "mkdir") == 0 && cmd_arg != NULL)
+            {
+                sd_mkdir_filename(cmd_arg);
             }
             else
             {
@@ -358,7 +368,7 @@ void sd_status()
     if (mount_status != SD_OK)
     {
         printf("SD card inserted, but unreadable.\n");
-        printf("Error: %s\n", sd_error_string(mount_status));
+        printf("Error: %s\n", fat32_error_string(mount_status));
         return;
     }
 
@@ -367,7 +377,7 @@ void sd_status()
     if (result != SD_OK)
     {
         printf("SD card inserted, unable to get total space.\n");
-        printf("Error: %s\n", sd_error_string(result));
+        printf("Error: %s\n", fat32_error_string(result));
         return;
     }
     char buffer[32];
@@ -378,6 +388,8 @@ void sd_status()
     printf("  Capacity: %s\n", buffer);
     bool is_sdhc = sd_is_sdhc();
     printf("  Type: %s\n", is_sdhc ? "SDHC" : "SDSC");
+    get_str_size(buffer, sizeof(buffer), fat32_get_cluster_size());
+    printf("  Cluster size: %s\n", buffer);
 }
 
 void sd_free()
@@ -393,7 +405,7 @@ void sd_free()
     }
     else
     {
-        printf("Error: %s\n", sd_error_string(result));
+        printf("Error: %s\n", fat32_error_string(result));
     }
 }
 
@@ -415,7 +427,7 @@ void cd_dirname(const char *dirname)
     sd_error_t result = fat32_set_current_dir(dirname);
     if (result != SD_OK)
     {
-        printf("Error: %s\n", sd_error_string(result));
+        printf("Error: %s\n", fat32_error_string(result));
         return;
     }
 }
@@ -426,7 +438,7 @@ void sd_pwd()
     sd_error_t result = fat32_get_current_dir(current_dir, sizeof(current_dir));
     if (result != SD_OK)
     {
-        printf("Error: %s\n", sd_error_string(result));
+        printf("Error: %s\n", fat32_error_string(result));
         return;
     }
     printf("%s\n", current_dir);
@@ -445,7 +457,7 @@ void sd_dir_dirname(const char *dirname)
     fat32_error_t result = fat32_dir_open(&dir, dirname);
     if (result != SD_OK)
     {
-        printf("Error: %s\n", sd_error_string(result));
+        printf("Error: %s\n", fat32_error_string(result));
         return;
     }
 
@@ -454,7 +466,7 @@ void sd_dir_dirname(const char *dirname)
         result = fat32_dir_read(&dir, &dir_entry);
         if (result != SD_OK)
         {
-            printf("Error: %s\n", sd_error_string(result));
+            printf("Error: %s\n", fat32_error_string(result));
             return;
         }
         if (dir_entry.name[0])
@@ -522,7 +534,7 @@ void sd_read_filename(const char *filename)
         {
             if (result != SD_OK)
             {
-                printf("Error: %s\n", sd_error_string(result));
+                printf("Error: %s\n", fat32_error_string(result));
             }
             break;
         }
@@ -576,4 +588,62 @@ void sd_read_filename(const char *filename)
     }
 
     fat32_file_close(&file);
+}
+
+void sd_mkfile()
+{
+    printf("Error: No filename specified.\n");
+    printf("Usage: mkfile <filename>\n");
+    printf("Example: mkfile newfile.txt\n");
+}
+
+void sd_mkfile_filename(const char *filename)
+{
+    if (filename == NULL || strlen(filename) == 0)
+    {
+        printf("Error: No filename specified.\n");
+        printf("Usage: mkfile <filename>\n");
+        printf("Example: mkfile newfile.txt\n");
+        return;
+    }
+
+    fat32_file_t file;
+    fat32_error_t result = fat32_file_create(&file, filename);
+    if (result != SD_OK)
+    {
+        printf("Error: %s\n", fat32_error_string(result));
+        return;
+    }
+
+    printf("File '%s' created successfully.\n", filename);
+    fat32_file_close(&file);
+}
+
+void sd_mkdir()
+{
+    printf("Error: No directory name specified.\n");
+    printf("Usage: mkdir <dirname>\n");
+    printf("Example: mkdir newdir\n");
+}
+
+void sd_mkdir_filename(const char *dirname)
+{
+    if (dirname == NULL || strlen(dirname) == 0)
+    {
+        printf("Error: No directory name specified.\n");
+        printf("Usage: mkdir <dirname>\n");
+        printf("Example: mkdir newdir\n");
+        return;
+    }
+
+    fat32_dir_t dir;
+    fat32_error_t result = fat32_dir_create(&dir, dirname);
+    if (result != SD_OK)
+    {
+        printf("Error: %s\n", fat32_error_string(result));
+        return;
+    }
+
+    printf("Directory '%s' created successfully.\n", dirname);
+    fat32_dir_close(&dir);
 }

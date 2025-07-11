@@ -4,6 +4,7 @@
 #define FAT32_SECTOR_SIZE (SD_BLOCK_SIZE) // Standard sector size
 #define FAT32_MAX_FILENAME_LEN (255)
 #define FAT32_MAX_PATH_LEN (260)
+#define MAX_LFN_PART (20) // Maximum number of LFN parts (13 UTF-16 chars each)
 
 // File attributes
 #define FAT32_ATTR_READ_ONLY (0x01)
@@ -177,6 +178,7 @@ fat32_error_t fat32_get_status(void);
 fat32_error_t fat32_get_free_space(uint64_t *free_space);
 fat32_error_t fat32_get_total_space(uint64_t *total_space);
 fat32_error_t fat32_get_volume_name(char *name, size_t name_len);
+uint32_t fat32_get_cluster_size(void);
 
 // File operations
 fat32_error_t fat32_file_open(fat32_file_t *file, const char *path);
