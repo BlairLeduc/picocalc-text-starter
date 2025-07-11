@@ -1712,6 +1712,89 @@ fat32_error_t fat32_dir_create(fat32_dir_t *dir, const char *path)
     dir->current_cluster = dir->start_cluster;
     dir->position = 0;
 
+    // Clear the directory cluster
+    uint32_t sector = cluster_to_sector(dir->start_cluster);
+    memset(sector_buffer, 0, FAT32_SECTOR_SIZE);
+    for (uint32_t i = 0; i < boot_sector.sectors_per_cluster; i++)
+    {
+        result = fat32_write_sector(sector + i, sector_buffer);
+        if (result != FAT32_OK)
+        {
+            return result;
+        }
+    }
+
+    // Find parent directory cluster
+    uint32_t parent_cluster = current_dir_cluster;
+    if (path[0] == '/')
+    {
+        parent_cluster = boot_sector.root_cluster;
+    }
+    
+    // For non-root paths, find the actual parent
+    if (strcmp(path, "/") != 0)
+    {
+        char path_copy[FAT32_MAX_PATH_LEN];
+        strncpy(path_copy, path, sizeof(path_copy) - 1);
+        path_copy[sizeof(path_copy) - 1] = '\0';
+        
+        char *last_slash = strrchr(path_copy, '/');
+        if (last_slash && last_slash != path_copy)
+        {
+            *last_slash = '\0';
+            fat32_entry_t parent_entry;
+            result = find_directory_entry(&parent_entry, path_copy);
+            if (result == FAT32_OK && (parent_entry.attr & FAT32_ATTR_DIRECTORY))
+            {
+                parent_cluster = parent_entry.start_cluster ? parent_entry.start_cluster : boot_sector.root_cluster;
+            }
+        }
+    }
+
+    // Create "." entry (current directory)
+    fat32_dir_entry_t dot_entry = {0};
+    memset(dot_entry.name, ' ', 11);
+    dot_entry.name[0] = '.';
+    dot_entry.attr = FAT32_ATTR_DIRECTORY;
+    dot_entry.fst_clus_hi = (dir->start_cluster >> 16) & 0xFFFF;
+    dot_entry.fst_clus_lo = dir->start_cluster & 0xFFFF;
+    dot_entry.file_size = 0;
+
+    // Create ".." entry (parent directory)
+    fat32_dir_entry_t dotdot_entry = {0};
+    memset(dotdot_entry.name, ' ', 11);
+    dotdot_entry.name[0] = '.';
+    dotdot_entry.name[1] = '.';
+    dotdot_entry.attr = FAT32_ATTR_DIRECTORY;
+    // For root directory parent, cluster should be 0
+    if (parent_cluster == boot_sector.root_cluster)
+    {
+        dotdot_entry.fst_clus_hi = 0;
+        dotdot_entry.fst_clus_lo = 0;
+    }
+    else
+    {
+        dotdot_entry.fst_clus_hi = (parent_cluster >> 16) & 0xFFFF;
+        dotdot_entry.fst_clus_lo = parent_cluster & 0xFFFF;
+    }
+    dotdot_entry.file_size = 0;
+
+    // Write both entries to the first sector of the directory
+    result = fat32_read_sector(cluster_to_sector(dir->start_cluster), sector_buffer);
+    if (result != FAT32_OK)
+    {
+        return result;
+    }
+
+    memcpy(sector_buffer, &dot_entry, sizeof(fat32_dir_entry_t));
+    memcpy(sector_buffer + 32, &dotdot_entry, sizeof(fat32_dir_entry_t));
+
+    result = fat32_write_sector(cluster_to_sector(dir->start_cluster), sector_buffer);
+    if (result != FAT32_OK)
+    {
+        return result;
+    }
+
     return FAT32_OK;
 }
 
