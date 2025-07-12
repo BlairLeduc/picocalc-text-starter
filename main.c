@@ -14,6 +14,37 @@ void set_onboard_led(uint8_t led)
     led_set(led & 0x01);
 }
 
+void readline(char *buffer, size_t size)
+{
+    size_t index = 0;
+    while (true)
+    {
+        char ch = getchar();
+        if (ch == 0x04) // Ctrl+D to debug
+        {
+            printf("Entering debug mode...\n");
+            __breakpoint();
+        }
+        else if (ch == '\n' || ch == '\r')
+        {
+            printf("\n");
+            break; // End of line
+        }
+        else if ((ch == 0x08 || ch == 0x7F) && index > 0) // Backspace or Delete
+        {
+            index--;
+            buffer[index] = '\0'; // Remove last character
+            printf("\b \b"); // Erase the last character
+        }
+        else if (ch >= 0x20 && ch < 0x7F && index < size - 1) // Printable characters
+        {
+            buffer[index++] = ch;
+            putchar(ch);
+        }
+    }
+    buffer[index] = '\0'; // Null-terminate the string
+}
+
 int main()
 {
     char buffer[40];
@@ -36,31 +67,16 @@ int main()
     printf("\033[qReady.\n");
     while (true)
     {
-        char ch = getchar();
-        if (ch == 0x04) // Ctrl+D to debug
+        readline(buffer, sizeof(buffer));
+        if (strlen(buffer) == 0)
         {
-            printf("Entering debug mode...\n");
-            __breakpoint();
+            continue; // Skip empty input
         }
-        else if ((ch == 0x08 || ch == 0x7F) && index > 0) // Backspace or Delete
-        {
-            printf("\b \b"); // Erase the last character
-            index--;
-        }
-        else if (ch >= 0x20 && ch < 0x7F && index < sizeof(buffer) - 1) // Printable characters
-        {
-            buffer[index++] = ch;
-            putchar(ch);
-        }
-        else if (ch == 0x0D) // Enter key
-        {
-            printf("\033[1q\n"); // Turn on the LED so the user knows input is being processed
-            buffer[index] = '\0'; // Null-terminate the string
 
-            run_command(buffer); // Call the command handler
+        printf("\033[1q\n"); // Turn on the LED so the user knows input is being processed
 
-            printf("\033[q\nReady.\n"); // Turn off the LED and prompt for input again
-            index = 0;
-        }
+        run_command(buffer); // Call the command handler
+
+        printf("\033[q\nReady.\n"); // Turn off the LED and prompt for input again
     }
 }

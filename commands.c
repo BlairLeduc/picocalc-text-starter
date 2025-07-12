@@ -16,6 +16,7 @@
 #include "commands.h"
 
 volatile bool user_interrupt = false;
+extern void readline(char *buffer, size_t size);
 
 // Command table - map of command names to functions
 static const command_t commands[] = {
@@ -615,8 +616,37 @@ void sd_mkfile_filename(const char *filename)
         return;
     }
 
-    printf("File '%s' created successfully.\n", filename);
+    // Get lines of text and write them to the file
+    // If a line is only a dot, stop reading, and close the file
+    printf("Enter text to write to the file,\nfinish with a single dot:\n");
+    char line[38];
+    uint32_t total_bytes_written = 0;
+    while (true)
+    {
+        printf("> ");
+        readline(line, sizeof(line));
+        if (strcmp(line, ".") == 0)
+        {
+            break; // Stop reading on a single dot
+        }
+        size_t bytes_written;
+        strcat(line, "\n"); // Add newline at the end
+        result = fat32_file_write(&file, line, strlen(line), &bytes_written);
+        if (result != SD_OK)
+        {
+            printf("Error writing to file: %s\n", fat32_error_string(result));
+            fat32_file_close(&file);
+            return;
+        }
+        if (bytes_written < strlen(line))
+        {
+            printf("Warning: Not all bytes written to file.\n");
+        }
+        total_bytes_written += bytes_written;
+    }
+
     fat32_file_close(&file);
+    printf("File '%s' created successfully with %u bytes written.\n", filename, total_bytes_written);
 }
 
 void sd_mkdir()

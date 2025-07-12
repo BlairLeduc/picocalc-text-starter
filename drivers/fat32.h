@@ -60,6 +60,10 @@ typedef struct
     uint32_t file_size;
     uint32_t position;
     uint8_t attributes;
+
+    // Directory entry location for updates
+    uint32_t dir_entry_sector; // Sector containing the directory entry
+    uint32_t dir_entry_offset; // Byte offset within the sector
 } fat32_file_t;
 
 typedef struct
@@ -80,6 +84,8 @@ typedef struct
     uint16_t time;
     uint32_t start_cluster; // First cluster number (FAT32)
     uint8_t attr;
+    uint32_t sector;
+    uint32_t offset;
 } fat32_entry_t;
 
 // Partition entry structure
@@ -114,18 +120,18 @@ typedef struct __attribute__((packed))
     uint32_t total_sectors_32;   // Total sectors (must be non-zero for FAT32)
 
     // FAT32 specific
-    uint32_t fat_size_32;   // Size of **each** FAT in sectors (must be non-zero)
-    uint16_t ext_flags;     // Extended flags (ignored)
-    uint16_t fat32_version; // File system version (ignored)
-    uint32_t root_cluster;  // First cluster of the root directory
-    uint16_t fat32_info;    // FSInfo sector number (usually 1)
-    uint16_t backup_boot;   // Backup boot sector number (usually 6)
-    uint8_t reserved[12];   // Reserved bytes (must be zero)
-    uint8_t drive_number;   // Drive number (ignored)
-    uint8_t reserved1;      // Reserved byte (ignored)
-    uint8_t boot_signature; // Boot signature (0x29)
-    uint32_t volume_id;     // Volume ID (ignored)
-    char volume_label[11];  // Volume label (ignored)
+    uint32_t fat_size_32;     // Size of **each** FAT in sectors (must be non-zero)
+    uint16_t ext_flags;       // Extended flags (ignored)
+    uint16_t fat32_version;   // File system version (ignored)
+    uint32_t root_cluster;    // First cluster of the root directory
+    uint16_t fat32_info;      // FSInfo sector number (usually 1)
+    uint16_t backup_boot;     // Backup boot sector number (usually 6)
+    uint8_t reserved[12];     // Reserved bytes (must be zero)
+    uint8_t drive_number;     // Drive number (ignored)
+    uint8_t reserved1;        // Reserved byte (ignored)
+    uint8_t boot_signature;   // Boot signature (0x29)
+    uint32_t volume_id;       // Volume ID (ignored)
+    char volume_label[11];    // Volume label (ignored)
     char file_system_type[8]; // File system type (should be "FAT32
 } fat32_boot_sector_t;
 
@@ -185,7 +191,7 @@ fat32_error_t fat32_file_open(fat32_file_t *file, const char *path);
 fat32_error_t fat32_file_create(fat32_file_t *file, const char *path);
 fat32_error_t fat32_file_close(fat32_file_t *file);
 fat32_error_t fat32_file_read(fat32_file_t *file, void *buffer, size_t size, size_t *bytes_read);
-fat32_error_t fat32_file_write(fat32_file_t *file, const void *buffer, size_t size);
+fat32_error_t fat32_file_write(fat32_file_t *file, const void *buffer, size_t size, size_t *bytes_written);
 fat32_error_t fat32_file_seek(fat32_file_t *file, uint32_t position);
 uint32_t fat32_file_tell(fat32_file_t *file);
 uint32_t fat32_file_size(fat32_file_t *file);
@@ -200,7 +206,7 @@ fat32_error_t fat32_dir_open(fat32_dir_t *dir, const char *path);
 fat32_error_t fat32_dir_read(fat32_dir_t *dir, fat32_entry_t *entry);
 fat32_error_t fat32_dir_close(fat32_dir_t *dir);
 fat32_error_t fat32_dir_create(fat32_dir_t *dir, const char *path);
-fat32_error_t fat32_dir_delete(fat32_dir_t *dir, const char *path);
+fat32_error_t fat32_dir_delete(const char *path);
 
 // Utility functions
 const char *fat32_error_string(fat32_error_t error);
