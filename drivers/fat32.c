@@ -229,6 +229,39 @@ static fat32_error_t get_next_free_cluster(uint32_t *cluster)
     return FAT32_ERROR_DISK_FULL; // No free clusters found
 }
 
+static fat32_error_t release_cluster_chain(uint32_t start_cluster)
+{
+    if (start_cluster < 2)
+    {
+        return FAT32_ERROR_INVALID_PARAMETER;
+    }
+
+    uint32_t cluster = start_cluster;
+    while (cluster < FAT32_FAT_ENTRY_EOC)
+    {
+        uint32_t next_cluster;
+        fat32_error_t result = read_cluster_fat_entry(cluster, &next_cluster);
+        if (result != FAT32_OK)
+        {
+            return result;
+        }
+
+        // Mark this cluster as free
+        result = write_cluster_fat_entry(cluster, FAT32_FAT_ENTRY_FREE);
+        if (result != FAT32_OK)
+        {
+            return result;
+        }
+
+        if (next_cluster >= FAT32_FAT_ENTRY_EOC)
+        {
+            break;
+        }
+        cluster = next_cluster;
+    }
+    return FAT32_OK;
+}
+
 //
 // Mount the SD Card functions
 //
@@ -836,7 +869,7 @@ static void lfn_to_str(fat32_lfn_entry_t *lfn_entry, char *buffer)
     *(buffer++) = utf16_to_utf8(lfn_entry->name3[1]);
 }
 
-static fat32_error_t find_directory_entry(fat32_entry_t *dir_entry, const char *path)
+static fat32_error_t find_entry(fat32_entry_t *dir_entry, const char *path)
 {
     if (!dir_entry || !path)
     {
@@ -924,7 +957,7 @@ static fat32_error_t find_directory_entry(fat32_entry_t *dir_entry, const char *
     return FAT32_ERROR_FILE_NOT_FOUND; // Not found
 }
 
-static fat32_error_t new_file(fat32_file_t *file, const char *path, uint8_t attr)
+static fat32_error_t new_entry(fat32_file_t *file, const char *path, uint8_t attr)
 {
     if (!file || !path )
     {
@@ -939,7 +972,7 @@ static fat32_error_t new_file(fat32_file_t *file, const char *path, uint8_t attr
     memset(file, 0, sizeof(fat32_file_t));
 
     fat32_entry_t entry;
-    fat32_error_t result = find_directory_entry(&entry, path);
+    fat32_error_t result = find_entry(&entry, path);
     if (result != FAT32_ERROR_FILE_NOT_FOUND)
     {
         if (result == FAT32_OK)
@@ -1177,6 +1210,97 @@ static fat32_error_t new_file(fat32_file_t *file, const char *path, uint8_t attr
     return FAT32_OK; // Successfully created new file
 }
 
+static fat32_error_t delete_entry(const char *path, bool is_dir)
+{
+    fat32_entry_t entry;
+    fat32_error_t result = find_entry(&entry, path);
+    if (result != FAT32_OK)
+    {
+        return result;
+    }
+
+    if (is_dir)
+    {
+        if (!(entry.attr & FAT32_ATTR_DIRECTORY))
+        {
+            return FAT32_ERROR_NOT_A_DIRECTORY;
+        }
+
+        // Check if directory is empty (only "." and ".." allowed)
+        fat32_dir_t dir;
+        result = fat32_dir_open(&dir, path);
+        if (result != FAT32_OK)
+        {
+            return result;
+        }
+
+        fat32_entry_t sub_entry;
+        int entry_count = 0;
+        while (fat32_dir_read(&dir, &sub_entry) == FAT32_OK && sub_entry.filename[0])
+        {
+            if (strcmp(sub_entry.filename, ".") != 0 && strcmp(sub_entry.filename, "..") != 0)
+            {
+                fat32_dir_close(&dir);
+                return FAT32_ERROR_DIR_NOT_EMPTY;
+            }
+            entry_count++;
+        }
+        fat32_dir_close(&dir);
+    }
+    else
+    {
+        if ((entry.attr & FAT32_ATTR_DIRECTORY) || (entry.attr & FAT32_ATTR_VOLUME_ID))
+        {
+            return FAT32_ERROR_NOT_A_FILE;
+        }
+    }
+
+    // Mark LFN entries and 8.3 entry as deleted
+    uint32_t sector = entry.sector;
+    uint32_t offset = entry.offset;
+
+    fat32_error_t res = read_sector(sector, sector_buffer);
+    if (res != FAT32_OK)
+    {
+        return res;
+    }
+
+    // Scan backwards for LFN entries
+    int lfn_count = 0;
+    for (int i = 1; i <= MAX_LFN_PART; i++)
+    {
+        if (offset < i * 32)
+        {
+            break;
+        }
+        fat32_dir_entry_t *lfn_entry = (fat32_dir_entry_t *)(sector_buffer + offset - i * 32);
+        if (lfn_entry->attr == FAT32_ATTR_LONG_NAME)
+        {
+            lfn_entry->shortname[0] = FAT32_DIR_ENTRY_FREE;
+            lfn_count++;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    // Mark 8.3 entry as deleted
+    fat32_dir_entry_t *dir_entry = (fat32_dir_entry_t *)(sector_buffer + offset);
+    dir_entry->shortname[0] = FAT32_DIR_ENTRY_FREE;
+
+    res = write_sector(sector, sector_buffer);
+    if (res != FAT32_OK)
+    {
+        return res;
+    }
+
+    // Free the clusters used by the entry
+    release_cluster_chain(entry.start_cluster);
+
+    return FAT32_OK;
+}
+
 //
 // File operations (simplified implementation)
 //
@@ -1201,7 +1325,7 @@ fat32_error_t fat32_file_open(fat32_file_t *file, const char *path)
     memset(file, 0, sizeof(fat32_file_t));
 
     fat32_entry_t entry;
-    fat32_error_t result = find_directory_entry(&entry, path);
+    fat32_error_t result = find_entry(&entry, path);
     if (result != FAT32_OK)
     {
         return result; // File not found or error
@@ -1226,7 +1350,7 @@ fat32_error_t fat32_file_open(fat32_file_t *file, const char *path)
 
 fat32_error_t fat32_file_create(fat32_file_t *file, const char *path)
 {
-    return new_file(file, path, FAT32_ATTR_ARCHIVE);
+    return new_entry(file, path, FAT32_ATTR_ARCHIVE);
 }
 
 fat32_error_t fat32_file_close(fat32_file_t *file)
@@ -1514,8 +1638,15 @@ bool fat32_file_eof(fat32_file_t *file)
 
 fat32_error_t fat32_file_delete(const char *path)
 {
-    // This is a placeholder implementation
-    return FAT32_ERROR_INVALID_PARAMETER;
+    if (!path || !*path)
+    {
+        return FAT32_ERROR_INVALID_PARAMETER;
+    }
+    if (!fat32_is_ready())
+    {
+        return mount_status;
+    }
+    return delete_entry(path, false);
 }
 
 //
@@ -1672,7 +1803,7 @@ fat32_error_t fat32_dir_open(fat32_dir_t *dir, const char *path)
     memset(dir, 0, sizeof(fat32_dir_t));
 
     fat32_entry_t entry;
-    fat32_error_t result = find_directory_entry(&entry, path);
+    fat32_error_t result = find_entry(&entry, path);
     if (result != FAT32_OK)
     {
         return result; // File not found or error
@@ -1827,7 +1958,7 @@ fat32_error_t fat32_dir_create(fat32_dir_t *dir, const char *path)
 
     memset(dir, 0, sizeof(fat32_dir_t));
 
-    fat32_error_t result = new_file(&file, path, FAT32_ATTR_DIRECTORY);
+    fat32_error_t result = new_entry(&file, path, FAT32_ATTR_DIRECTORY);
     if (result != FAT32_OK)
     {
         return result; // Error creating directory
@@ -1869,7 +2000,7 @@ fat32_error_t fat32_dir_create(fat32_dir_t *dir, const char *path)
         {
             *last_slash = '\0';
             fat32_entry_t parent_entry;
-            result = find_directory_entry(&parent_entry, path_copy);
+            result = find_entry(&parent_entry, path_copy);
             if (result == FAT32_OK && (parent_entry.attr & FAT32_ATTR_DIRECTORY))
             {
                 parent_cluster = parent_entry.start_cluster ? parent_entry.start_cluster : boot_sector.root_cluster;
@@ -1926,8 +2057,17 @@ fat32_error_t fat32_dir_create(fat32_dir_t *dir, const char *path)
 
 fat32_error_t fat32_dir_delete(const char *path)
 {
-    return FAT32_ERROR_INVALID_PARAMETER;
+    if (!path || !*path)
+    {
+        return FAT32_ERROR_INVALID_PARAMETER;
+    }
+    if (!fat32_is_ready())
+    {
+        return mount_status;
+    }
+    return delete_entry(path, true);
 }
+
 
 
 const char *fat32_error_string(fat32_error_t error)

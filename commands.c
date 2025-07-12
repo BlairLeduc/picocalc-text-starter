@@ -34,6 +34,8 @@ static const command_t commands[] = {
     {"more", sd_more, "Page through a file"},
     {"play", play, "Play a song"},
     {"pwd", sd_pwd, "Print working directory"},
+    {"rm", sd_rm, "Remove a file"},
+    {"rmdir", sd_rmdir, "Remove a directory"},
     {"sdcard", sd_status, "Show SD card status"},
     {"songs", show_song_library, "Show song library"},
     {"test", test, "Run a test"},
@@ -160,6 +162,14 @@ void run_command(const char *command)
             else if (strcmp(cmd_name, "mkdir") == 0 && cmd_arg != NULL)
             {
                 sd_mkdir_filename(cmd_arg);
+            }
+            else if (strcmp(cmd_name, "rm") == 0 && cmd_arg != NULL)
+            {
+                sd_rm_filename(cmd_arg);
+            }
+            else if (strcmp(cmd_name, "rmdir") == 0 && cmd_arg != NULL)
+            {
+                sd_rmdir_dirname(cmd_arg);
             }
             else
             {
@@ -677,3 +687,58 @@ void sd_mkdir_filename(const char *dirname)
     printf("Directory '%s' created successfully.\n", dirname);
     fat32_dir_close(&dir);
 }
+
+void sd_rm()
+{
+    printf("Error: No filename specified.\n");
+    printf("Usage: rm <filename>\n");
+    printf("Example: rm oldfile.txt\n");
+}
+
+void sd_rm_filename(const char *filename)
+{
+    if (filename == NULL || strlen(filename) == 0)
+    {
+        printf("Error: No filename specified.\n");
+        printf("Usage: rm <filename>\n");
+        printf("Example: rm oldfile.txt\n");
+        return;
+    }
+
+    fat32_error_t result = fat32_file_delete(filename);
+    if (result != FAT32_OK)
+    {
+        printf("Error: %s\n", fat32_error_string(result));
+        return;
+    }
+
+    printf("File '%s' removed successfully.\n", filename);
+}
+
+void sd_rmdir()
+{
+    printf("Error: No directory name specified.\n");
+    printf("Usage: rmdir <dirname>\n");
+    printf("Example: rmdir olddir\n");
+}
+
+void sd_rmdir_dirname(const char *dirname)
+{
+    if (dirname == NULL || strlen(dirname) == 0)
+    {
+        printf("Error: No directory name specified.\n");
+        printf("Usage: rmdir <dirname>\n");
+        printf("Example: rmdir olddir\n");
+        return;
+    }
+
+    fat32_error_t result = fat32_dir_delete(dirname);
+    if (result != FAT32_OK)
+    {
+        printf("Error: %s\n", fat32_error_string(result));
+        return;
+    }
+
+    printf("Directory '%s' removed successfully.\n", dirname);
+}
+
