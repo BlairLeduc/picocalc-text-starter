@@ -470,7 +470,7 @@ void sd_dir_dirname(const char *dirname)
             printf("Error: %s\n", fat32_error_string(result));
             return;
         }
-        if (dir_entry.name[0])
+        if (dir_entry.filename[0])
         {
             if (dir_entry.attr & (FAT32_ATTR_VOLUME_ID|FAT32_ATTR_HIDDEN|FAT32_ATTR_SYSTEM))
             {
@@ -480,16 +480,16 @@ void sd_dir_dirname(const char *dirname)
             else if (dir_entry.attr & FAT32_ATTR_DIRECTORY)
             {
                 // It's a directory, append '/' to the name
-                printf("%s/\n", dir_entry.name);
+                printf("%s/\n", dir_entry.filename);
             }
             else
             {
                 char size_buffer[16];
                 get_str_size(size_buffer, sizeof(size_buffer), dir_entry.size);
-                printf("%-28s %10s\n", dir_entry.name, size_buffer);
+                printf("%-28s %10s\n", dir_entry.filename, size_buffer);
             }
         }
-    } while (dir_entry.name[0]);
+    } while (dir_entry.filename[0]);
 
     fat32_dir_close(&dir);
 }

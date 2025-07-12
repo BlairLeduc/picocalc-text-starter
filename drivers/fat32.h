@@ -78,7 +78,7 @@ typedef struct
 // Directory entry structure
 typedef struct
 {
-    char name[256];
+    char filename[256];
     uint32_t size;
     uint16_t date;
     uint16_t time;
@@ -149,7 +149,7 @@ typedef struct
 
 typedef struct
 {
-    char name[11];
+    char shortname[11];
     uint8_t attr;
     uint8_t nt_res;
     uint8_t crt_time_tenth;
