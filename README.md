@@ -74,9 +74,13 @@ These commands provide examples of how to use the drivers:
 - **cd** – Change the current directory
 - **dir** – Display the contents of the current directory
 - **free** – Shows the free space remaining on the SD card
+- **mkdir** – Create a new directory
+- **mkfile** – Create a new file
 - **more** – Display the contents of a file
 - **play** – Play a named song (use 'songs' for a list of available songs)
 - **pwd** – Displays the current directory
+- **rm** – Remove a file
+- **rmdir** – Remove a directory
 - **sdcard** – Provides information about the inserted SD card
 - **songs** – List all available songs
 - **test** – Run a named test (use 'tests' for a list of available tests)
