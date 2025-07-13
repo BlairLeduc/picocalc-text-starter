@@ -2013,8 +2013,6 @@ const char *fat32_error_string(fat32_error_t error)
         return "Not a directory";
     case FAT32_ERROR_NOT_A_FILE:
         return "Not a file";
-    case FAT32_ERROR_INVALID_POSITION:
-        return "Invalid file position";
     case FAT32_ERROR_DIR_NOT_EMPTY:
         return "Directory not empty";
     case FAT32_ERROR_DIR_NOT_FOUND:
@@ -2023,8 +2021,18 @@ const char *fat32_error_string(fat32_error_t error)
         return "Disk full";
     case FAT32_ERROR_FILE_EXISTS:
         return "File already exists";
+    case FAT32_ERROR_INVALID_POSITION:
+        return "Invalid file position";
     case FAT32_ERROR_INVALID_PARAMETER:
         return "Invalid parameter";
+    case FAT32_ERROR_INVALID_SECTOR_SIZE:
+        return "Invalid sector size";
+    case FAT32_ERROR_INVALID_CLUSTER_SIZE:
+        return "Invalid cluster size";
+    case FAT32_ERROR_INVALID_FATS:
+        return "Invalid FAT size";
+    case FAT32_ERROR_INVALID_RESERVED_SECTORS:
+        return "Invalid reserved sectors";
     default:
         return "Unknown error";
     }

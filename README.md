@@ -1,23 +1,24 @@
 # picocalc-text-starter
 
-With this starter project, you will be able to get started on the [PicoCalc](https://www.clockworkpi.com/picocalc) using the [Pico-Series C/C++ SDK](https://www.raspberrypi.com/documentation/microcontrollers/c_sdk.html). You can create the [text-based user interface](https://en.wikipedia.org/wiki/Text-based_user_interface) experience of the 1980's that are well suited for a mouseless system.
+This starter kit is to get you started on the [PicoCalc](https://www.clockworkpi.com/picocalc) using the [Pico-Series C/C++ SDK](https://www.raspberrypi.com/documentation/microcontrollers/c_sdk.html). You can create the [text-based user interfaces](https://en.wikipedia.org/wiki/Text-based_user_interface) experience of the 1980's that are well suited for a mouseless system.
 
-This starter contains code to write **text** to the LCD display and read input from the keyboard using the C stdio <stdio.h> library (printf, scanf, getchar, putchar, ...). 
+This starter does not contain the best-of-bread drivers for each component, but rather enough capability to get **your project "started" fast**.
+
 
 > [!CAUTION]
-> This starter is not intended for getting started with only a Raspberry Pi Pico as you should already have, or will need to gain, knowledge of the Pico-series C/C++ SDK and writing embedded code for the Pico-series devices. You will require a [PicoCalc](https://www.clockworkpi.com/product-page/picocalc) to use these drivers.
+> You should already have, or will need to gain, knowledge of the Pico-series C/C++ SDK and writing embedded code for the Pico-series devices. You will require a [PicoCalc](https://www.clockworkpi.com/product-page/picocalc) to use these drivers.
 
 This starter includes drivers for:
 
-- Audio (stereo)
+- Audio (one voice per left/right channel)
 - Display (multicolour text with ANSI escape code emulation)
 - Keyboard
 - Pico onboard LED (WiFi-option aware)
 - Serial port
-- SD Card (read only)
+- SD Card (FAT32 file system only)
 - Southbridge functions (keyboard, battery, backlights)
 
-This starter does not contain the best-of-bread drivers for each component, but rather enough capability to get **your project "started" fast**.
+By default, this starter routes stdout and stdin to the display and keyboard.
 
 > [!WARNING]
 > This starter is not designed, nor intended, to create graphical or sprite-based games. Hopefully, other starters are available that can help you, though you could easily create text-based games.
@@ -48,10 +49,8 @@ int main()
 
 If you are using [Visual Studio Code](https://code.visualstudio.com) and the [Raspberry Pi Pico](https://marketplace.visualstudio.com/items?itemName=raspberry-pi.raspberry-pi-pico) extension, remember to "Switch Board" to the Pico you are using.
 
-If you are using a third-party board with WiFi you will also need to add that board to list of boards that support WiFi near the end of `CMakeList.txt`.
-
 > [!TIP]
-> You can manually update `CMakeLists.txt` to set the board to the Pico you are using (PICO_BOARD) and update the WiFi board list at the end of the file. 
+> Make sure you update `CMakeLists.txt` to set the board to the Pico you are using (PICO_BOARD) and update the WiFi board list at the end of the file if you are using a third-party board. 
 
 
 
@@ -114,7 +113,7 @@ Documentation for the high-level drivers. These drivers use low-level drivers to
 - [PicoCalc](docs/picocalc.md) – pseudo driver configures the southbridge, display and keyboard drivers
 - [Display](docs/display.md) – emulates an ANSI terminal
 - [Keyboard](docs/keyboard.md) – uses a timer loop that polls the PicoCalc's southbridge for key presses
-- [FAT32](docs/fat32.md) – read from an SD card formatted with FAT32
+- [FAT32](docs/fat32.md) – read and write from an SD card formatted with FAT32
 
 
 # Low-Level Drivers
