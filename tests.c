@@ -408,6 +408,16 @@ void displaytest()
     printf("Average displayed cps: %.0f\n", displayed_per_second);
 }
 
+void keyboardtest()
+{
+    char input;
+    while (!user_interrupt)
+    {
+        char ch = getchar();
+        printf("You pressed: '%c' - 0%o, %d, 0x%x\n", ch, ch, ch, ch);
+    }
+}
+
 static bool fat32_test_setup()
 {
     printf("Setting up FAT32 test environment...\n");
@@ -436,6 +446,7 @@ static bool fat32_test_cleanup()
 
     printf("Cleaning up test files...\n");
 
+    fat32_set_current_dir("/");
 
     printf("Cleanup complete.\n");
     return true;
@@ -1010,6 +1021,69 @@ static bool fat32_test_large_files()
     return true;
 }
 
+static bool fat32_test_delete_operations()
+{
+    fat32_file_t file;
+    fat32_dir_t dir;
+
+    printf("\n=== Delete Operations Test ===\n");
+
+    if (fat32_set_current_dir("/tests") != FAT32_OK)
+    {
+        printf("FAIL: Cannot change to tests directory\n");
+        return false;
+    }
+
+    // Create and delete a file
+    if (fat32_file_create(&file, "delete_me.txt") != FAT32_OK &&
+        fat32_file_open(&file, "delete_me.txt") != FAT32_OK)
+    {
+        printf("FAIL: Cannot create or open delete_me.txt\n");
+        return false;
+    }
+    fat32_file_close(&file);
+
+    if (fat32_file_delete("delete_me.txt") != FAT32_OK)
+    {
+        printf("FAIL: Cannot delete delete_me.txt\n");
+        return false;
+    }
+
+    // Verify file is deleted
+    if (fat32_file_open(&file, "delete_me.txt") == FAT32_OK)
+    {
+        printf("FAIL: delete_me.txt still exists after deletion\n");
+        fat32_file_close(&file);
+        return false;
+    }
+
+    // Create and delete a directory
+    if (fat32_dir_create(&dir, "delete_dir") != FAT32_OK &&
+        fat32_dir_open(&dir, "delete_dir") != FAT32_OK)
+    {
+        printf("FAIL: Cannot create or open delete_dir\n");
+        return false;
+    }
+    fat32_dir_close(&dir);
+
+    if (fat32_dir_delete("delete_dir") != FAT32_OK)
+    {
+        printf("FAIL: Cannot delete delete_dir\n");
+        return false;
+    }
+
+    // Verify directory is deleted
+    if (fat32_dir_open(&dir, "delete_dir") == FAT32_OK)
+    {
+        printf("FAIL: delete_dir still exists after deletion\n");
+        fat32_dir_close(&dir);
+        return false;
+    }
+
+    printf("PASS: Delete operations test\n");
+    return true;
+}
+
 void fat32test()
 {
     printf("Comprehensive FAT32 File System Test\n");
@@ -1096,6 +1170,20 @@ void fat32test()
         return;
     }
 
+    // Run delete operations test
+    if (!fat32_test_delete_operations())
+    {
+        printf("\nFAT32 delete operations test FAILED!\n");
+        printf("Check file/directory deletion logic.\n");
+        return;
+    }
+
+    if (user_interrupt)
+    {
+        printf("\nTest suite interrupted by user.\n");
+        return;
+    }
+
     // Cleanup
     fat32_test_cleanup();
 
@@ -1115,6 +1203,7 @@ void fat32test()
 const test_t tests[] = {
     {"audio", audiotest, "Audio Driver Test"},
     {"display", displaytest, "Display Driver Test"},
+    {"keyboard", keyboardtest, "Keyboard Driver Test"},
     {"fat32", fat32test, "FAT32 File System Test"},
     {NULL, NULL, NULL} // End marker
 };

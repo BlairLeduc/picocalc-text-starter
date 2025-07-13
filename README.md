@@ -1,8 +1,8 @@
 # picocalc-text-starter
 
-This starter kit is to get you started on the [PicoCalc](https://www.clockworkpi.com/picocalc) using the [Pico-Series C/C++ SDK](https://www.raspberrypi.com/documentation/microcontrollers/c_sdk.html). You can create the [text-based user interfaces](https://en.wikipedia.org/wiki/Text-based_user_interface) experience of the 1980's that are well suited for a mouseless system.
+This starter kit was created to get you started on the [PicoCalc](https://www.clockworkpi.com/picocalc) using the [Pico-Series C/C++ SDK](https://www.raspberrypi.com/documentation/microcontrollers/c_sdk.html). You can recreate the [text-based user interface](https://en.wikipedia.org/wiki/Text-based_user_interface) experience of the 1980's that are well suited for a mouseless system.
 
-This starter does not contain the best-of-bread drivers for each component, but rather enough capability to get **your project "started" fast**.
+This starter does not consist of *best-of-bread* drivers for each component. It does provide enough capability to get **your project "started" fast**.
 
 
 > [!CAUTION]
@@ -18,7 +18,7 @@ This starter includes drivers for:
 - SD Card (FAT32 file system only)
 - Southbridge functions (keyboard, battery, backlights)
 
-By default, this starter routes stdout and stdin to the display and keyboard.
+By default, this starter routes `stdout` and `stdin` to the display and keyboard.
 
 > [!WARNING]
 > This starter is not designed, nor intended, to create graphical or sprite-based games. Hopefully, other starters are available that can help you, though you could easily create text-based games.
@@ -54,7 +54,7 @@ If you are using [Visual Studio Code](https://code.visualstudio.com) and the [Ra
 
 
 
-# Demo REPL
+# Starter Demonstration REPL
 
 The main entry point for this starter is a simple REPL to run demos and tests of the drivers and the functioning of your PicoCalc. 
 
@@ -104,6 +104,8 @@ Tests to make sure the hardware and drivers are working correctly.
 
 - **audio** – Test the audio driver with different notes, distinct left/right separation, melodies bouncing between channels, and harmonious intervals. 
 - **display** – Display driver stress test with scrolling lines of different colours, writing ANSI escape codes and characters as quickly as possible. Note: characters processed includes the processing of escape squences where characters displayed are the number of characters drawn on the display.
+- **keyboard** – Test the keyboard driver by pressing keys and displaying the key codes. Press 'Brk' to exit the test.
+- **fat32** – Test the FAT32 driver with different file operations (create, read, write, delete) and verify the integrity of the file system.
 
 
 # High-Level Drivers
