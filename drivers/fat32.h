@@ -132,7 +132,7 @@ typedef struct __attribute__((packed))
     uint8_t boot_signature;   // Boot signature (0x29)
     uint32_t volume_id;       // Volume ID (ignored)
     char volume_label[11];    // Volume label (ignored)
-    char file_system_type[8]; // File system type (should be "FAT32
+    char file_system_type[8]; // File system type (should be "FAT32      ")
 } fat32_boot_sector_t;
 
 // FAT32 FSInfo sector structure

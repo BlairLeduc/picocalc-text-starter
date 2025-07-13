@@ -376,7 +376,7 @@ void sd_status()
     }
 
     sd_error_t mount_status = fat32_get_status();
-    if (mount_status != SD_OK)
+    if (mount_status != FAT32_OK)
     {
         printf("SD card inserted, but unreadable.\n");
         printf("Error: %s\n", fat32_error_string(mount_status));
@@ -482,7 +482,7 @@ void sd_dir_dirname(const char *dirname)
         }
         if (dir_entry.filename[0])
         {
-            if (dir_entry.attr & (FAT32_ATTR_VOLUME_ID|FAT32_ATTR_HIDDEN|FAT32_ATTR_SYSTEM))
+            if (dir_entry.attr & (FAT32_ATTR_VOLUME_ID | FAT32_ATTR_HIDDEN | FAT32_ATTR_SYSTEM))
             {
                 // It's a volume label, hidden file, or system file, skip it
                 continue;
@@ -640,7 +640,8 @@ void sd_mkfile_filename(const char *filename)
             break; // Stop reading on a single dot
         }
         size_t bytes_written;
-        strcat(line, "\n"); // Add newline at the end
+        size_t remaining_space = sizeof(line) - strlen(line) - 1;
+        strncat(line, "\n", remaining_space);
         result = fat32_file_write(&file, line, strlen(line), &bytes_written);
         if (result != SD_OK)
         {
@@ -741,4 +742,3 @@ void sd_rmdir_dirname(const char *dirname)
 
     printf("Directory '%s' removed successfully.\n", dirname);
 }
-

@@ -410,7 +410,6 @@ void displaytest()
 
 void keyboardtest()
 {
-    char input;
     while (!user_interrupt)
     {
         char ch = getchar();
@@ -487,7 +486,7 @@ static bool fat32_test_basic_operations()
 
     if (bytes_written != strlen(test_data))
     {
-        printf("FAIL: Wrote %lu bytes, expected %zu\n", bytes_written, strlen(test_data));
+        printf("FAIL: Wrote %zu bytes, expected %zu\n", bytes_written, strlen(test_data));
         return false;
     }
 
