@@ -18,7 +18,7 @@ This starter includes drivers for:
 - SD Card (FAT32 file system only)
 - Southbridge functions (keyboard, battery, backlights)
 
-By default, this starter routes `stdout` and `stdin` to the display and keyboard.
+See below for more information on integration with the C standard library and the REPL provided to demonstrate the drivers.
 
 > [!WARNING]
 > This starter is not designed, nor intended, to create graphical or sprite-based games. Hopefully, other starters are available that can help you, though you could easily create text-based games.
@@ -42,8 +42,11 @@ int main()
 
     // Your project starts here
     printf("Hello, world!\n");
+
+    return 0;
 }
 ```
+
 
 ## Configuration
 
@@ -52,6 +55,53 @@ If you are using [Visual Studio Code](https://code.visualstudio.com) and the [Ra
 > [!TIP]
 > Make sure you update `CMakeLists.txt` to set the board to the Pico you are using (PICO_BOARD) and update the WiFi board list at the end of the file if you are using a third-party board. 
 
+
+# Standard C Library
+
+By default, this starter routes `stdout` and `stdin` to the display and keyboard. You can use the standard C library functions to print to the display and read from the keyboard. For example:
+
+``` C
+#include <stdio.h>
+#include "drivers/picocalc.h"
+
+int main()
+{
+    char buffer[100];
+
+    picocalc_init(NULL);
+
+    printf("Enter your name: ");
+    scanf("%99s", buffer);
+    printf("Hello, %s!\n", buffer);
+
+    return 0;
+}
+```
+
+If you want to use standard C library file I/O functions, include `drivers/clib.c` in your project. This will allow you to use `fopen`, `fread`, `fwrite`, and other file I/O functions with the SD card.
+
+``` C
+#include <stdio.h>
+#include "drivers/picocalc.h"
+
+int main()
+{
+    picocalc_init(NULL);
+
+    FILE *file = fopen("/test.txt", "w");
+    if (file)
+    {
+        fprintf(file, "Hello, PicoCalc!\n");
+        fclose(file);
+    }
+    else
+    {
+        printf("Failed to open file.\n");
+    }
+
+    return 0;
+}
+```
 
 
 # Starter Demonstration REPL

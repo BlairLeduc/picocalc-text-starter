@@ -301,6 +301,18 @@ void display_emit(char ch)
                     {
                         lcd_set_reverse(true);
                     }
+                    else if (parameters[i] == 22) // normal intensity
+                    {
+                        lcd_set_foreground(FOREGROUND);
+                    }
+                    else if (parameters[i] == 24) // not underlined
+                    {
+                        lcd_set_underscore(false);
+                    }
+                    else if (parameters[i] == 27) // positive image
+                    {
+                        lcd_set_reverse(false);
+                    }
                     else if (parameters[i] >= 30 && parameters[i] <= 37) // foreground colour
                     {
                         lcd_set_foreground(palette[parameters[i] - 30]);

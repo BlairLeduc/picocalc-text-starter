@@ -49,8 +49,8 @@ void lcd_set_reverse(bool reverse_on)
     if (reverse && !reverse_on || !reverse && reverse_on)
     {
         uint16_t temp = foreground;
-        lcd_set_foreground(background);
-        lcd_set_background(temp);
+        foreground = background;
+        background = temp;
     }
     reverse = reverse_on;
 }
