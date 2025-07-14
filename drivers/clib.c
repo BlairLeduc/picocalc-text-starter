@@ -73,7 +73,7 @@ int _open(const char *filename, int oflag, ...)
 
 int _close(int fd)
 {
-    if (fd & 0x4000 == 0)
+    if ((fd & 0x4000) == 0)
     {
         return -1; // Invalid file descriptor
     }
