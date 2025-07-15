@@ -81,12 +81,12 @@ int _open(const char *filename, int oflag, ...)
 
 int _close(int fd)
 {
-    if ((fd & 0x4000) == 0)
+    if ((fd & FD_FLAG_MASK) == 0)
     {
         return -1; // Invalid file descriptor
     }
 
-    fd &= ~0x4000; // Clear the file descriptor flag
+    fd &= ~FD_FLAG_MASK; // Clear the file descriptor flag
     if (fd < 0 || fd >= MAX_OPEN_FILES || !files[fd].is_open)
     {
         return -1; // Invalid file descriptor
@@ -104,12 +104,12 @@ int _close(int fd)
 
 off_t _lseek(int fd, off_t offset, int whence)
 {
-    if (fd & 0x4000 == 0)
+    if (fd & FD_FLAG_MASK == 0)
     {
         return -1; // Invalid file descriptor
     }
 
-    fd &= ~0x4000; // Clear the file descriptor flag
+    fd &= ~FD_FLAG_MASK; // Clear the file descriptor flag
 
     if (fd < 0 || fd >= MAX_OPEN_FILES || !files[fd].is_open)
     {
@@ -146,12 +146,12 @@ int _read(int fd, char *buffer, int length)
         return stdio_get_until(buffer, length, at_the_end_of_time);
     }
 
-    if (fd & 0x4000 == 0)
+    if (fd & FD_FLAG_MASK == 0)
     {
         return -1; // Invalid file descriptor
     }
 
-    fd &= ~0x4000; // Clear the file descriptor flag
+    fd &= ~FD_FLAG_MASK; // Clear the file descriptor flag
 
     if (fd < 0 || fd >= MAX_OPEN_FILES || !files[fd].is_open)
     {
@@ -181,12 +181,12 @@ int _write(int fd, const char *buffer, int length)
         return length; // Return number of bytes written
     }
 
-    if (fd & 0x4000 == 0)
+    if (fd & FD_FLAG_MASK == 0)
     {
         return -1; // Invalid file descriptor
     }
 
-    fd &= ~0x4000; // Clear the file descriptor flag
+    fd &= ~FD_FLAG_MASK; // Clear the file descriptor flag
 
     if (fd < 0 || fd >= MAX_OPEN_FILES || !files[fd].is_open)
     {
@@ -210,12 +210,12 @@ int _write(int fd, const char *buffer, int length)
 
 int _fstat(int fd, struct stat *buf)
 {
-    if (fd & 0x4000 == 0)
+    if (fd & FD_FLAG_MASK == 0)
     {
         return -1; // Invalid file descriptor
     }
 
-    fd &= ~0x4000; // Clear the file descriptor flag
+    fd &= ~FD_FLAG_MASK; // Clear the file descriptor flag
 
     if (fd < 0 || fd >= MAX_OPEN_FILES || !files[fd].is_open)
     {
