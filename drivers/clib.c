@@ -1,3 +1,11 @@
+//
+// clib.c - Interface to the C standard library functions for PicoCalc
+//
+// This file provides implementations for file operations using the FAT32 filesystem.
+//
+// Include this file in your project to enable file handling capabilities.
+//
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,12 +53,11 @@ int _open(const char *filename, int oflag, ...)
                 {
                     return -1; // Failed to open file
                 }
-                return -1; // Failed to open file
-            } 
-
-            if ((oflag & (O_CREAT | O_EXCL)) == (O_CREAT | O_EXCL))
+            }
+            else if (oflag & O_EXCL && files[i].is_open)
             {
-                return -1; // O_CREAT and O_EXCL are set, but file already exists
+                fat32_file_close(&files[i]); // Close the file if it already exists
+                return -1; // File already exists and O_EXCL is set
             }
             
             if (oflag & O_TRUNC)
