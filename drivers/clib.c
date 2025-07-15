@@ -72,7 +72,7 @@ int _open(const char *filename, int oflag, ...)
                 files[i].position = files[i].file_size;
             }
 
-            return i | 0x4000; // Return a file descriptor (positive value)
+            return i | FD_FLAG_MASK; // Return a file descriptor (positive value)
         }
     }
     return -1;
