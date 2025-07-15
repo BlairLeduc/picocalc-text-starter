@@ -14,6 +14,7 @@
 #include "pico/stdlib.h"
 #include "fat32.h"
 
+#define FD_FLAG_MASK 0x4000 // Mask to indicate a file descriptor
 #define MAX_OPEN_FILES 16
 
 static int initialized = 0;
