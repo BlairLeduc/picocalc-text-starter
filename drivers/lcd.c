@@ -315,14 +315,26 @@ void lcd_putc(uint8_t column, uint8_t row, uint8_t c)
 
     for (uint8_t i = 0; i < GLYPH_HEIGHT; i++, glyph++)
     {
-        *(buffer++) = (*glyph & 0x80) ? foreground : background;
-        *(buffer++) = (*glyph & 0x40) ? foreground : background;
-        *(buffer++) = (*glyph & 0x20) ? foreground : background;
-        *(buffer++) = (*glyph & 0x10) ? foreground : background;
-        *(buffer++) = (*glyph & 0x08) ? foreground : background;
-        *(buffer++) = (*glyph & 0x04) ? foreground : background;
-        *(buffer++) = (*glyph & 0x02) ? foreground : background;
-        *(buffer++) = (*glyph & 0x01) ? foreground : background;
+        if (i < GLYPH_HEIGHT - 1)
+        {
+            // Fill the row with the glyph data
+            *(buffer++) = (*glyph & 0x80) ? foreground : background;
+            *(buffer++) = (*glyph & 0x40) ? foreground : background;
+            *(buffer++) = (*glyph & 0x20) ? foreground : background;
+            *(buffer++) = (*glyph & 0x10) ? foreground : background;
+            *(buffer++) = (*glyph & 0x08) ? foreground : background;
+            *(buffer++) = (*glyph & 0x04) ? foreground : background;
+            *(buffer++) = (*glyph & 0x02) ? foreground : background;
+            *(buffer++) = (*glyph & 0x01) ? foreground : background;
+        }
+        else
+        {
+            // Last row is always empty (cursor line) or underscore
+            for (int j = 0; j < 8; j++)
+            {
+                *(buffer++) = underscore ? foreground : background;
+            }
+        }
     }
 
     lcd_blit(char_buffer, column << 3, row * GLYPH_HEIGHT, 8, GLYPH_HEIGHT);
