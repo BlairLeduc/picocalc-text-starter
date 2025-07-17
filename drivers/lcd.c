@@ -330,7 +330,7 @@ void lcd_putc(uint8_t column, uint8_t row, uint8_t c)
         else
         {
             // Last row is always empty (cursor line) or underscore
-            for (int j = 0; j < 8; j++)
+            for (int j = 0; j < GLYPH_WIDTH; j++)
             {
                 *(buffer++) = underscore ? foreground : background;
             }
