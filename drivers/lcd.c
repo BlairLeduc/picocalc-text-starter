@@ -28,8 +28,9 @@ static uint16_t lcd_y_offset = 0; // offset for vertical scrolling
 static uint16_t foreground = 0xFFFF; // default foreground colour (white)
 static uint16_t background = 0x0000; // default background colour (black)
 
-static bool underscore = false;    // underscore state (not implemented)
-static bool reverse = false;       // reverse video state (not implemented)
+static bool underscore = false;    // underscore state
+static bool reverse = false;       // reverse video state
+static bool bold = false;          // bold text state
 
 // Text drawing
 extern uint8_t font[];
@@ -59,6 +60,12 @@ void lcd_set_underscore(bool underscore_on)
 {
     // Underscore is not implemented, but we can toggle the state
     underscore = underscore_on;
+}
+
+void lcd_set_bold(bool bold_on)
+{
+    // Bold text is not implemented, but we can toggle the state
+    bold = bold_on;
 }
 
 // Set foreground colour
@@ -319,13 +326,13 @@ void lcd_putc(uint8_t column, uint8_t row, uint8_t c)
         {
             // Fill the row with the glyph data
             *(buffer++) = (*glyph & 0x80) ? foreground : background;
-            *(buffer++) = (*glyph & 0x40) ? foreground : background;
-            *(buffer++) = (*glyph & 0x20) ? foreground : background;
-            *(buffer++) = (*glyph & 0x10) ? foreground : background;
-            *(buffer++) = (*glyph & 0x08) ? foreground : background;
-            *(buffer++) = (*glyph & 0x04) ? foreground : background;
-            *(buffer++) = (*glyph & 0x02) ? foreground : background;
-            *(buffer++) = (*glyph & 0x01) ? foreground : background;
+            *(buffer++) = (*glyph & 0x40) || (bold && (*glyph & 0x80)) ? foreground : background;
+            *(buffer++) = (*glyph & 0x20) || (bold && (*glyph & 0x40)) ? foreground : background;
+            *(buffer++) = (*glyph & 0x10) || (bold && (*glyph & 0x20)) ? foreground : background;
+            *(buffer++) = (*glyph & 0x08) || (bold && (*glyph & 0x10)) ? foreground : background;
+            *(buffer++) = (*glyph & 0x04) || (bold && (*glyph & 0x08)) ? foreground : background;
+            *(buffer++) = (*glyph & 0x02) || (bold && (*glyph & 0x04)) ? foreground : background;
+            *(buffer++) = (*glyph & 0x01) || (bold && (*glyph & 0x02)) ? foreground : background;
         }
         else
         {

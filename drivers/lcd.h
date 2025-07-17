@@ -76,6 +76,7 @@ void lcd_set_foreground(uint16_t colour);
 void lcd_set_background(uint16_t colour);
 void lcd_set_reverse(bool reverse_on);
 void lcd_set_underscore(bool underscore_on);
+void lcd_set_bold(bool bold_on);
 
 // Display control functions
 void lcd_reset(void);
