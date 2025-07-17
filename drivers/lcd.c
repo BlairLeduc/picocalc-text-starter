@@ -64,7 +64,7 @@ void lcd_set_underscore(bool underscore_on)
 
 void lcd_set_bold(bool bold_on)
 {
-    // Bold text is not implemented, but we can toggle the state
+    // Toggles the bold state. Bold text is implemented in the lcd_putc function.
     bold = bold_on;
 }
 
