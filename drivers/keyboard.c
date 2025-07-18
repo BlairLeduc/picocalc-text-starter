@@ -42,7 +42,7 @@ static repeating_timer_t key_timer;
 
 static bool on_keyboard_timer(repeating_timer_t *rt)
 {
-    uint16_t key = 0; 
+    uint16_t key = 0;
     uint8_t key_state = 0;
     uint8_t key_code = 0;
 
@@ -74,20 +74,6 @@ static bool on_keyboard_timer(repeating_timer_t *rt)
                 {
                     user_interrupt = true; // set user interrupt flag
                 }
-
-                continue;
-            }
-
-            if (key_state == KEY_STATE_RELEASED)
-            {
-                if (key_code == KEY_MOD_CTRL)
-                {
-                    key_control = false;
-                }
-                else if (key_code == KEY_MOD_SHL || key_code == KEY_MOD_SHR)
-                {
-                    key_shift = false;
-                }
                 else
                 {
                     // If a key is released, we return the key code
@@ -104,7 +90,7 @@ static bool on_keyboard_timer(repeating_timer_t *rt)
                             ch &= ~0x20;
                         }
                     }
-                    if (ch == 0x0A) // enter key is returned as LF
+                    else if (ch == 0x0A) // enter key is returned as LF
                     {
                         ch = 0x0D; // convert LF to CR
                     }
@@ -118,6 +104,20 @@ static bool on_keyboard_timer(repeating_timer_t *rt)
                     {
                         keyboard_key_available_callback();
                     }
+                }
+
+                continue;
+            }
+
+            if (key_state == KEY_STATE_RELEASED)
+            {
+                if (key_code == KEY_MOD_CTRL)
+                {
+                    key_control = false;
+                }
+                else if (key_code == KEY_MOD_SHL || key_code == KEY_MOD_SHR)
+                {
+                    key_shift = false;
                 }
             }
         }
