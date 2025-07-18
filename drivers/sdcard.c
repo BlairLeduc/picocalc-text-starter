@@ -21,20 +21,24 @@
 
 // Global state
 static bool sd_initialised = false;
-static bool is_sdhc = false; // Set this in sd_card_init()
+static bool is_sdhc = false;                                                      // Set this in sd_card_init()
+static uint8_t dummy_bytes[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // Dummy bytes for SPI read/write
 
 //
 // Low-level SD card SPI functions
 //
+static void sd_spi_write_buf(const uint8_t *src, size_t len);
 
 static inline void sd_cs_select(void)
 {
     gpio_put(SD_CS, 0);
+    sd_spi_write_buf(dummy_bytes, 8); // Send dummy bytes to ensure CS is low for at least 8 clock cycles
 }
 
 static inline void sd_cs_deselect(void)
 {
     gpio_put(SD_CS, 1);
+    sd_spi_write_buf(dummy_bytes, 8); // Send dummy bytes to ensure CS is high for at least 8 clock cycles
 }
 
 static uint8_t sd_spi_write_read(uint8_t data)
@@ -76,15 +80,6 @@ static uint8_t sd_send_command(uint8_t cmd, uint32_t arg)
 {
     uint8_t response;
     uint8_t retry = 0;
-
-    // For CMD0, don't wait for ready state since card might not be ready yet
-    if (cmd != SD_CMD0)
-    {
-        if (!sd_wait_ready())
-        {
-            return 0xFF; // Timeout waiting for ready
-        }
-    }
 
     // Prepare command packet
     uint8_t packet[6];
@@ -261,7 +256,6 @@ const char *sd_error_string(sd_error_t error)
     }
 }
 
-
 //
 // Initialisation functions
 //
@@ -273,6 +267,7 @@ sd_error_t sd_card_init(void)
 
     // Ensure CS is high and wait for card to stabilize
     sd_cs_deselect();
+
     busy_wait_us(10000); // Wait for card to stabilize
 
     // Send 80+ clock pulses with CS high to put card in SPI mode
@@ -309,7 +304,6 @@ sd_error_t sd_card_init(void)
         // Read the rest of R7 response
         uint8_t r7[4];
         sd_spi_read_buf(r7, 4);
-        busy_wait_us(1000); // Wait for card to stabilize
         sd_cs_deselect();
 
         // Check if voltage range is acceptable
@@ -337,7 +331,6 @@ sd_error_t sd_card_init(void)
         }
 
         response = sd_send_command(SD_ACMD41, 0x40000000); // HCS bit for SDHC support
-        busy_wait_us(1000);                                // Wait for card to stabilize
         sd_cs_deselect();
 
         if (response == 0)
@@ -364,7 +357,6 @@ sd_error_t sd_card_init(void)
     }
     uint8_t ocr[4] = {0};
     sd_spi_read_buf(ocr, 4);
-    busy_wait_us(1000); // Wait for card to stabilize
     sd_cs_deselect();
 
     is_sdhc = (ocr[0] & 0x40) != 0; // CCS bit in OCR
@@ -373,8 +365,8 @@ sd_error_t sd_card_init(void)
     if (!is_sdhc)
     {
         response = sd_send_command(SD_CMD16, SD_BLOCK_SIZE);
-        busy_wait_us(1000); // Wait for card to stabilize
         sd_cs_deselect();
+
         if (response != 0)
         {
             return SD_ERROR_INIT_FAILED;
