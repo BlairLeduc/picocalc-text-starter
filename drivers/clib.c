@@ -227,7 +227,7 @@ int _read(int fd, char *buffer, int length)
         return bytes_read; // Return number of bytes read
     }
 
-    return 0; // Failure
+    return 0; // End of file
 }
 
 int _write(int fd, const char *buffer, int length)
