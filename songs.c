@@ -585,10 +585,11 @@ const audio_song_t *find_song(const char *song_name)
 // Function to list all available songs
 void show_song_library(void)
 {
-    printf("Song Library:\n\n");
+    printf("\033[?25l\033[4mSong Library\033[0m\n\n");
 
     for (int i = 0; songs[i].name != NULL; i++)
     {
-        printf("  %s - %s\n", songs[i].name, songs[i].description);
+        printf("  \033[1m%s\033[0m - %s\n", songs[i].name, songs[i].description);
     }
+    printf("\n\033[?25h");
 }

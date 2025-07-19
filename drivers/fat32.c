@@ -979,7 +979,7 @@ static fat32_error_t find_entry(fat32_entry_t *dir_entry, const char *path)
         fat32_dir_close(&dir);
         if (!found && next_token)
         {
-            return FAT32_ERROR_INVALID_PATH; // Intermediate directory not found
+            return FAT32_ERROR_DIR_NOT_FOUND; // Intermediate directory not found
         }
         token = next_token;
     }

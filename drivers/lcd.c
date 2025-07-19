@@ -336,11 +336,15 @@ void lcd_putc(uint8_t column, uint8_t row, uint8_t c)
         }
         else
         {
-            // Last row is always empty (cursor line) or underscore
-            for (int j = 0; j < GLYPH_WIDTH; j++)
-            {
-                *(buffer++) = underscore ? foreground : background;
-            }
+            // The last row is where the underscore is drawn, but if no underscore is set, fill with glyph data
+            *(buffer++) = (*glyph & 0x80) || underscore ? foreground : background;
+            *(buffer++) = (*glyph & 0x40) || underscore ? foreground : background;
+            *(buffer++) = (*glyph & 0x20) || underscore ? foreground : background;
+            *(buffer++) = (*glyph & 0x10) || underscore ? foreground : background;
+            *(buffer++) = (*glyph & 0x08) || underscore ? foreground : background;
+            *(buffer++) = (*glyph & 0x04) || underscore ? foreground : background;
+            *(buffer++) = (*glyph & 0x02) || underscore ? foreground : background;
+            *(buffer++) = (*glyph & 0x01) || underscore ? foreground : background;
         }
     }
 

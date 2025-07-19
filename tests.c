@@ -1223,10 +1223,11 @@ const test_t *find_test(const char *test_name)
 // Function to list all available songs
 void show_test_library(void)
 {
-    printf("Test Library:\n\n");
+    printf("\033[?25l\033[4mTest Library\033[0m\n\n");
 
     for (int i = 0; tests[i].name != NULL; i++)
     {
-        printf("  %s - %s\n", tests[i].name, tests[i].description);
+        printf("  \033[1m%s\033[0m - %s\n", tests[i].name, tests[i].description);
     }
+    printf("\033[?25h\n");
 }

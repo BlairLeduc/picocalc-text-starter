@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #include "pico/bootrom.h"
 #include "pico/float.h"
@@ -189,11 +190,12 @@ void run_command(const char *command)
 
 void show_command_library()
 {
-    printf("Command Library:\n\n");
+    printf("\033[?25l\033[4mCommand Library\033[0m\n\n");
     for (int i = 0; commands[i].name != NULL; i++)
     {
-        printf("  %s - %s\n", commands[i].name, commands[i].description);
+        printf("  \033[1m%s\033[0m - %s\n", commands[i].name, commands[i].description);
     }
+    printf("\n\033[?25h");
 }
 
 void backlight()
@@ -214,42 +216,42 @@ void battery()
     printf("\033[?25l\033(0");
     if (charging)
     {
-        printf("\033[93m");
+        printf("\033[38;5;220m");
     }
     else
     {
-        printf("\033[97m");
+        printf("\033[38;5;231m");
     }
     printf("lqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqk\n");
     printf("x ");
     if (battery_level < 10)
     {
-        printf("\033[101m"); // Set background colour to red for critical battery
+        printf("\033[38;5;196;7m"); // Set background colour to red for critical battery
     }
     else if (battery_level < 30)
     {
-        printf("\033[103m"); // Set background colour to yellow for low battery
+        printf("\033[38;5;226;7m"); // Set background colour to yellow for low battery
     }
     else
     {
-        printf("\033[102m"); // Set background colour to green for sufficient battery
+        printf("\033[38;5;46;7m"); // Set background colour to green for sufficient battery
     }
     for (int i = 0; i < battery_level / 3; i++)
     {
         printf(" "); // Print a coloured space for each 3% of battery
     }
-    printf("\033[37;40m"); // Reset colour
+    printf("\033[0;38;5;242m"); // Reset colour
     for (int i = battery_level / 3; i < 33; i++)
     {
         printf("a"); // Fill the rest of the bar with fuzz
     }
     if (charging)
     {
-        printf("\033[93m");
+        printf("\033[38;5;220m");
     }
     else
     {
-        printf("\033[97m");
+        printf("\033[38;5;231m");
     }
     printf(" x\n");
     printf("mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqj\n");
@@ -277,7 +279,7 @@ void beep()
 void box()
 {
     printf("A box using the DEC Special Character\nSet:\n\n");
-    printf("\033[93m");  // Set foreground colour to bright yellow
+    printf("\033[38;5;208m");  // Set foreground colour to orange
     printf("\033[?25l"); // Hide cursor
 
     // Switch to DEC Special Character Set and draw a box
@@ -521,11 +523,11 @@ void sd_read_filename(const char *filename)
         return;
     }
 
-    fat32_file_t file;
-    fat32_error_t result = fat32_file_open(&file, filename);
-    if (result != SD_OK)
+    FILE *fp;
+    fp = fopen(filename, "r");
+    if (fp == NULL)
     {
-        printf("Error: %s\n", fat32_error_string(result));
+        printf("Cannot open file '%s':\n%s\n", filename, strerror(errno));
         return;
     }
 
@@ -538,19 +540,25 @@ void sd_read_filename(const char *filename)
 
     printf("\033[2J\033[H");
 
-    while (!user_quit && total_bytes_read < fat32_file_size(&file))
+    while (!user_quit && !feof(fp))
     {
-        result = fat32_file_read(&file, buffer, sizeof(buffer) - 1, &bytes_read);
-        if (result != SD_OK || bytes_read == 0)
+        bytes_read = fread(buffer, 1, sizeof(buffer) - 1, fp);
+        if (bytes_read == 0)
         {
-            if (result != SD_OK)
+            if (ferror(fp))
             {
-                printf("Error: %s\n", fat32_error_string(result));
+                printf("Error reading file '%s':\n%s\n", filename, strerror(errno));
             }
             break;
         }
-
-        buffer[bytes_read] = '\0'; // Null terminate
+        if (bytes_read < sizeof(buffer) - 1)
+        {
+            buffer[bytes_read] = '\0'; // Null terminate the string
+        }
+        else
+        {
+            buffer[sizeof(buffer) - 1] = '\0'; // Ensure null termination
+        }
         total_bytes_read += bytes_read;
 
         // Display the content line by line
@@ -598,7 +606,7 @@ void sd_read_filename(const char *filename)
             break;
     }
 
-    fat32_file_close(&file);
+    fclose(fp);
 }
 
 void sd_mkfile()
@@ -618,11 +626,11 @@ void sd_mkfile_filename(const char *filename)
         return;
     }
 
-    fat32_file_t file;
-    fat32_error_t result = fat32_file_create(&file, filename);
-    if (result != SD_OK)
+    FILE *fp;
+    fp = fopen(filename, "wx+");
+    if (fp == NULL)
     {
-        printf("Error: %s\n", fat32_error_string(result));
+        printf("Cannot create file '%s':\n%s\n", filename, strerror(errno));
         return;
     }
 
@@ -642,22 +650,17 @@ void sd_mkfile_filename(const char *filename)
         size_t bytes_written;
         size_t remaining_space = sizeof(line) - strlen(line) - 1;
         strncat(line, "\n", remaining_space);
-        result = fat32_file_write(&file, line, strlen(line), &bytes_written);
-        if (result != SD_OK)
-        {
-            printf("Error writing to file: %s\n", fat32_error_string(result));
-            fat32_file_close(&file);
-            return;
-        }
+        bytes_written = fwrite(line, 1, strlen(line), fp);
         if (bytes_written < strlen(line))
         {
-            printf("Warning: Not all bytes written to file.\n");
+            printf("Warning: Not all bytes written!\n");
         }
         total_bytes_written += bytes_written;
     }
 
-    fat32_file_close(&file);
-    printf("File '%s' created successfully with %u bytes written.\n", filename, total_bytes_written);
+    fclose(fp);
+
+    printf("File '%s' created\nwith %u bytes written.\n", filename, total_bytes_written);
 }
 
 void sd_mkdir()
@@ -685,7 +688,7 @@ void sd_mkdir_filename(const char *dirname)
         return;
     }
 
-    printf("Directory '%s' created successfully.\n", dirname);
+    printf("Directory '%s' created.\n", dirname);
     fat32_dir_close(&dir);
 }
 
@@ -713,7 +716,7 @@ void sd_rm_filename(const char *filename)
         return;
     }
 
-    printf("File '%s' removed successfully.\n", filename);
+    printf("File '%s' removed.\n", filename);
 }
 
 void sd_rmdir()
@@ -740,5 +743,5 @@ void sd_rmdir_dirname(const char *dirname)
         return;
     }
 
-    printf("Directory '%s' removed successfully.\n", dirname);
+    printf("Directory '%s' removed.\n", dirname);
 }

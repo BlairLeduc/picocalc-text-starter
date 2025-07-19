@@ -23,7 +23,7 @@ if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
-set(PICO_BOARD pico2_w CACHE STRING "Board type")
+set(PICO_BOARD pico CACHE STRING "Board type")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
@@ -68,7 +68,7 @@ add_executable(picocalc-text-starter
         )
 
 pico_set_program_name(picocalc-text-starter "picocalc-text-starter")
-pico_set_program_version(picocalc-text-starter "0.4")
+pico_set_program_version(picocalc-text-starter "0.5")
 
 
 # Generate PIO header
@@ -100,7 +100,9 @@ target_link_libraries(picocalc-text-starter
         )
 
 # Add wireless library only for boards that support it
-if(PICO_BOARD STREQUAL "pico_w" OR PICO_BOARD STREQUAL "pico2_w")
+if(PICO_BOARD STREQUAL "pico_w" 
+        OR PICO_BOARD STREQUAL "pico2_w"
+        OR PICO_BOARD STREQUAL "pimoroni_pico_plus2_w_rp2350")
     target_link_libraries(picocalc-text-starter
             pico_cyw43_arch_none
             )

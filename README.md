@@ -88,11 +88,11 @@ int main()
 {
     picocalc_init(NULL);
 
-    FILE *file = fopen("/test.txt", "w");
-    if (file)
+    FILE *fp = fopen("/test.txt", "w+");
+    if (fp)
     {
-        fprintf(file, "Hello, PicoCalc!\n");
-        fclose(file);
+        fprintf(fp, "Hello, PicoCalc!\n");
+        fclose(fp);
     }
     else
     {

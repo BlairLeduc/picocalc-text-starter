@@ -282,10 +282,11 @@ void display_emit(char ch)
                         lcd_set_background(BACKGROUND);
                         lcd_set_underscore(false);
                         lcd_set_reverse(false);
+                        lcd_set_bold(false);
                     }
-                    else if (parameters[i] == 1) // bold or increased intensity
+                    else if (parameters[i] == 1) // bold
                     {
-                        lcd_set_foreground(BRIGHT);
+                        lcd_set_bold(true);
                     }
                     else if (parameters[i] == 2) // dim
                     {
@@ -301,9 +302,10 @@ void display_emit(char ch)
                     {
                         lcd_set_reverse(true);
                     }
-                    else if (parameters[i] == 22) // normal intensity
+                    else if (parameters[i] == 22) // normal intensity/weight
                     {
                         lcd_set_foreground(FOREGROUND);
+                        lcd_set_bold(false);
                     }
                     else if (parameters[i] == 24) // not underlined
                     {

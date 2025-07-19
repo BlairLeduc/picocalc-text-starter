@@ -58,10 +58,10 @@ int main()
     stdio_init_all();
     picocalc_init(led_init_result == 0 ? set_onboard_led : NULL);
 
-    printf("\033c Hello from the PicoCalc Text Starter!\n\n");
+    printf("\033c\033[1m Hello from the PicoCalc Text Starter!\033[0m\n\n");
     printf("      Contributed to the community\n");
     printf("            by Blair Leduc.\n\n");
-    printf("Type 'help' for a list of commands.\n\n");
+    printf("Type \033[4mhelp\033[0m for a list of commands.\n\n");
 
     // A very simple REPL
     printf("\033[qReady.\n");
