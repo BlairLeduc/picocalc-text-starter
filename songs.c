@@ -591,5 +591,5 @@ void show_song_library(void)
     {
         printf("  \033[1m%s\033[0m - %s\n", songs[i].name, songs[i].description);
     }
-    printf("\n\033[?25h");
+    printf("\033[?25h\n");
 }
