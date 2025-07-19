@@ -55,25 +55,15 @@ typedef enum
 typedef struct
 {
     bool is_open;
+    bool last_entry_read;
+    uint8_t attributes;
     uint32_t start_cluster;
     uint32_t current_cluster;
     uint32_t file_size;
     uint32_t position;
-    uint8_t attributes;
-
-    // Directory entry location for updates
     uint32_t dir_entry_sector; // Sector containing the directory entry
     uint32_t dir_entry_offset; // Byte offset within the sector
 } fat32_file_t;
-
-typedef struct
-{
-    bool is_open;
-    uint32_t start_cluster;
-    uint32_t current_cluster;
-    uint32_t position;
-    bool last_entry_read;
-} fat32_dir_t;
 
 // Directory entry structure
 typedef struct
@@ -102,7 +92,7 @@ typedef struct
 } __attribute__((packed)) mbr_partition_entry_t;
 
 // Boot sector structure (simplified)
-typedef struct __attribute__((packed))
+typedef struct
 {
     uint8_t jump[3];             // Jump[0] must be 0xEB or 0xE9
     char oem_name[8];            // OEM name (e.g., "MSWIN4.1") (ignore)
@@ -133,7 +123,7 @@ typedef struct __attribute__((packed))
     uint32_t volume_id;       // Volume ID (ignored)
     char volume_label[11];    // Volume label (ignored)
     char file_system_type[8]; // File system type (should be "FAT32      ")
-} fat32_boot_sector_t;
+} __attribute__((packed)) fat32_boot_sector_t;
 
 // FAT32 FSInfo sector structure
 typedef struct
@@ -187,26 +177,24 @@ fat32_error_t fat32_get_volume_name(char *name, size_t name_len);
 uint32_t fat32_get_cluster_size(void);
 
 // File operations
-fat32_error_t fat32_file_open(fat32_file_t *file, const char *path);
-fat32_error_t fat32_file_create(fat32_file_t *file, const char *path);
-fat32_error_t fat32_file_close(fat32_file_t *file);
-fat32_error_t fat32_file_read(fat32_file_t *file, void *buffer, size_t size, size_t *bytes_read);
-fat32_error_t fat32_file_write(fat32_file_t *file, const void *buffer, size_t size, size_t *bytes_written);
-fat32_error_t fat32_file_seek(fat32_file_t *file, uint32_t position);
-uint32_t fat32_file_tell(fat32_file_t *file);
-uint32_t fat32_file_size(fat32_file_t *file);
-bool fat32_file_eof(fat32_file_t *file);
-fat32_error_t fat32_file_delete(const char *path);
+fat32_error_t fat32_open(fat32_file_t *file, const char *path);
+fat32_error_t fat32_create(fat32_file_t *file, const char *path);
+fat32_error_t fat32_close(fat32_file_t *file);
+fat32_error_t fat32_read(fat32_file_t *file, void *buffer, size_t size, size_t *bytes_read);
+fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, size_t *bytes_written);
+fat32_error_t fat32_seek(fat32_file_t *file, uint32_t position);
+uint32_t fat32_tell(fat32_file_t *file);
+uint32_t fat32_size(fat32_file_t *file);
+bool fat32_eof(fat32_file_t *file);
+fat32_error_t fat32_delete(const char *path);
+fat32_error_t fat32_rename(const char *old_path, const char *new_path);
 
 // Directory operations
 fat32_error_t fat32_set_current_dir(const char *path);
 fat32_error_t fat32_get_current_dir(char *path, size_t path_len);
 
-fat32_error_t fat32_dir_open(fat32_dir_t *dir, const char *path);
-fat32_error_t fat32_dir_read(fat32_dir_t *dir, fat32_entry_t *entry);
-fat32_error_t fat32_dir_close(fat32_dir_t *dir);
-fat32_error_t fat32_dir_create(fat32_dir_t *dir, const char *path);
-fat32_error_t fat32_dir_delete(const char *path);
+fat32_error_t fat32_dir_read(fat32_file_t *dir, fat32_entry_t *entry);
+fat32_error_t fat32_dir_create(fat32_file_t *dir, const char *path);
 
 // Utility functions
 const char *fat32_error_string(fat32_error_t error);

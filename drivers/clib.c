@@ -78,12 +78,12 @@ int _open(const char *filename, int oflag, ...)
     {
         if (files[i].is_open == 0)
         {
-            if ((result = fat32_file_open(&files[i], filename)) != FAT32_OK)
+            if ((result = fat32_open(&files[i], filename)) != FAT32_OK)
             {
                 if (oflag & O_CREAT && result == FAT32_ERROR_FILE_NOT_FOUND)
                 {
                     // If O_CREAT is set, try to create the file
-                    if ((result = fat32_file_create(&files[i], filename)) != FAT32_OK)
+                    if ((result = fat32_create(&files[i], filename)) != FAT32_OK)
                     {
                         errno = fat32_error_to_errno(result);
                         return -1; // Failed to create file
@@ -97,7 +97,7 @@ int _open(const char *filename, int oflag, ...)
             }
             else if (oflag & O_EXCL && files[i].is_open)
             {
-                fat32_file_close(&files[i]); // Close the file if it already exists
+                fat32_close(&files[i]); // Close the file if it already exists
                 errno = EEXIST;              // File already exists and O_EXCL is set
                 return -1;
             }
@@ -139,10 +139,10 @@ int _close(int fd)
     }
 
     fat32_file_t *file = &files[fd];
-    if ((result = fat32_file_close(file)) == FAT32_OK)
+    if ((result = fat32_close(file)) == FAT32_OK)
     {
         file->is_open = 0; // Mark as closed
-        return 0; // Success
+        return 0;          // Success
     }
 
     errno = fat32_error_to_errno(result);
@@ -181,7 +181,7 @@ off_t _lseek(int fd, off_t offset, int whence)
         file->position = file->file_size + offset;
     }
 
-    if ((result = fat32_file_seek(file, offset)) == FAT32_OK)
+    if ((result = fat32_seek(file, offset)) == FAT32_OK)
     {
         return file->position; // Success
     }
@@ -216,7 +216,7 @@ int _read(int fd, char *buffer, int length)
 
     fat32_file_t *file = &files[fd];
     size_t bytes_read = 0;
-    if ((result = fat32_file_read(file, buffer, length, &bytes_read)) != FAT32_OK)
+    if ((result = fat32_read(file, buffer, length, &bytes_read)) != FAT32_OK)
     {
         errno = fat32_error_to_errno(result);
         return -1; // Read failed
@@ -262,7 +262,7 @@ int _write(int fd, const char *buffer, int length)
 
     fat32_file_t *file = &files[fd];
     size_t bytes_written = 0;
-    if ((result = fat32_file_write(file, buffer, length, &bytes_written)) != FAT32_OK)
+    if ((result = fat32_write(file, buffer, length, &bytes_written)) != FAT32_OK)
     {
         errno = fat32_error_to_errno(result);
         return -1; // Write failed
@@ -276,7 +276,7 @@ int _write(int fd, const char *buffer, int length)
     if (length > 0)
     {
         errno = EIO; // I/O error
-        return -1; // Failure
+        return -1;   // Failure
     }
 }
 
@@ -298,7 +298,19 @@ int _fstat(int fd, struct stat *buf)
 
     fat32_file_t *file = &files[fd];
     buf->st_size = file->file_size;
-    buf->st_mode = S_IFREG | S_IRUSR | S_IWUSR;
+
+    if (file->attributes & FAT32_ATTR_DIRECTORY)
+    {
+        buf->st_mode = S_IFDIR | S_IRUSR | S_IWUSR | S_IXUSR; // Directory with rwx for user
+    }
+    else
+    {
+        buf->st_mode = S_IFREG | S_IRUSR; // Regular file, readable by user
+        if (!(file->attributes & FAT32_ATTR_READ_ONLY))
+        {
+            buf->st_mode |= S_IWUSR; // Writable if not read-only
+        }
+    }
     buf->st_nlink = 1;
     buf->st_uid = 0;
     buf->st_gid = 0;
@@ -306,5 +318,48 @@ int _fstat(int fd, struct stat *buf)
     buf->st_mtime = 0;
     buf->st_ctime = 0;
     buf->st_ino = 0;
+    return 0; // Success
+}
+
+int _stat(const char *path, struct stat *buf)
+{
+    int fd = _open(path, O_RDONLY);
+    if (fd < 0) {
+        // _open sets errno
+        return -1;
+    }
+
+    int result = _fstat(fd, buf);
+    _close(fd); // Always close, even if _fstat fails
+
+    return result;
+}
+
+int _link(const char *oldpath, const char *newpath)
+{
+    return -1; // Linking is not supported in FAT32 :(
+}
+
+int _unlink(const char *filename)
+{
+    fat32_error_t result;
+
+    if ((result = fat32_delete(filename)) != FAT32_OK)
+    {
+        errno = fat32_error_to_errno(result);
+        return -1; // Deletion failed
+    }
+    return 0; // Success
+}
+
+int rename(const char *oldpath, const char *newpath)
+{
+    fat32_error_t result;
+
+    if ((result = fat32_rename(oldpath, newpath)) != FAT32_OK)
+    {
+        errno = fat32_error_to_errno(result);
+        return -1; // Rename failed
+    }
     return 0; // Success
 }

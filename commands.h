@@ -33,6 +33,8 @@ void sd_mkfile(void);
 void sd_mkfile_filename(const char *filename);
 void sd_mkdir(void);
 void sd_mkdir_filename(const char *dirname);
+void sd_mv(void);
+void sd_mv_filename(const char *oldname, const char *newname);
 void sd_rm(void);
 void sd_rm_filename(const char *filename);
 void sd_rmdir(void);

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <errno.h>
 
 #include "pico/bootrom.h"
@@ -27,11 +28,12 @@ static const command_t commands[] = {
     {"box", box, "Draw a box on the screen"},
     {"bye", bye, "Reboot into BOOTSEL mode"},
     {"cls", clearscreen, "Clear the screen"},
-    {"cd", cd, "Change directory"},
+    {"cd", cd, "Change directory ('/' path sep.)"},
     {"dir", dir, "List files on the SD card"},
     {"free", sd_free, "Show free space on the SD card"},
     {"mkdir", sd_mkdir, "Create a new directory"},
     {"mkfile", sd_mkfile, "Create a new file"},
+    {"mv", sd_mv, "Move or rename a file/directory"},
     {"more", sd_more, "Page through a file"},
     {"play", play, "Play a song"},
     {"pwd", sd_pwd, "Print working directory"},
@@ -44,6 +46,64 @@ static const command_t commands[] = {
     {"help", show_command_library, "Show this help message"},
     {NULL, NULL, NULL} // Sentinel to mark end of array
 };
+
+
+char *strechr(const char *s, int c)
+{
+    do
+    {
+        if (*s == '\0')
+        {
+            return NULL;
+        }
+        if (*s == '\\')
+        {
+            s++; // Skip escaped character
+            if (*s == '\0')
+            {
+                return NULL; // End of string after escape
+            }
+        }
+        s++;
+    } while (*s != (char)c);
+
+    return (char *)s;
+}
+
+char *condense(char *s)
+{
+    char *src = (char *)s;
+    char *dst = (char *)s;
+
+    while (*src)
+    {
+        if (*src != '\\')
+        {
+            *dst++ = *src++;
+        }
+        else
+        { 
+            src++;
+            if (*src == '\0')
+            {
+                break; // End of string after escape
+            }
+            *dst++ = *src++; // Copy the escaped character
+        }
+    }
+    *dst = '\0';
+    return s;
+}
+
+char *basename(const char *path)
+{
+    const char *last_slash = strechr(path, '/');
+    if (last_slash)
+    {
+        return (char *)(last_slash + 1); // Return after the last slash
+    }
+    return (char *)path; // No slashes, return the whole path
+}
 
 // Extended song command that takes a parameter
 static void play_named_song(const char *song_name)
@@ -107,25 +167,25 @@ void run_command(const char *command)
 
     // Make a copy of the command string for parsing
     char cmd_copy[256];
+    char *cmd_args[8] = {NULL};
     strncpy(cmd_copy, command, sizeof(cmd_copy) - 1);
     cmd_copy[sizeof(cmd_copy) - 1] = '\0';
 
     // Parse command and arguments
-    char *cmd_name = cmd_copy;
-    char *cmd_arg = NULL;
-    char *space = strchr(cmd_copy, ' ');
-    if (space)
-    {
-        *space = '\0'; // Terminate cmd_name
-        cmd_arg = space + 1;
-        // Skip any leading spaces in cmd_arg
-        while (*cmd_arg == ' ')
-            cmd_arg++;
-        if (*cmd_arg == '\0')
-            cmd_arg = NULL;
-    }
+    int arg_count = 0; // Start with one argument (the command name)
+    char *cptr = cmd_copy;
 
-    if (!cmd_name || *cmd_name == '\0')
+    do
+    {
+        cmd_args[arg_count++] = cptr; // Set cmd_name to the current position
+        cptr = strechr(cptr, ' ');
+        if (cptr)
+        {
+            *cptr++ = '\0'; // Terminate argument at the space
+        }
+    } while (*cptr && arg_count < 8);
+
+    if (!cmd_args[0] || *cmd_args[0] == '\0')
     {
         return; // Empty command
     }
@@ -133,44 +193,48 @@ void run_command(const char *command)
     // Search for command in the table
     for (int i = 0; commands[i].name != NULL; i++)
     {
-        if (strcmp(cmd_name, commands[i].name) == 0)
+        if (strcmp(cmd_args[0], commands[i].name) == 0)
         {
             // Special handling for song commands with arguments
-            if (strcmp(cmd_name, "play") == 0 && cmd_arg != NULL)
+            if (strcmp(cmd_args[0], "play") == 0 && cmd_args[1] != NULL)
             {
-                play_named_song(cmd_arg);
+                play_named_song(condense(cmd_args[1]));
             }
-            else if (strcmp(cmd_name, "more") == 0 && cmd_arg != NULL)
+            else if (strcmp(cmd_args[0], "more") == 0 && cmd_args[1] != NULL)
             {
-                sd_read_filename(cmd_arg);
+                sd_read_filename(condense(cmd_args[1]));
             }
-            else if (strcmp(cmd_name, "test") == 0 && cmd_arg != NULL)
+            else if (strcmp(cmd_args[0], "test") == 0 && cmd_args[1] != NULL)
             {
-                run_named_test(cmd_arg);
+                run_named_test(condense(cmd_args[1]));
             }
-            else if (strcmp(cmd_name, "dir") == 0 && cmd_arg != NULL)
+            else if (strcmp(cmd_args[0], "dir") == 0 && cmd_args[1] != NULL)
             {
-                sd_dir_dirname(cmd_arg);
+                sd_dir_dirname(condense(cmd_args[1]));
             }
-            else if (strcmp(cmd_name, "cd") == 0 && cmd_arg != NULL)
+            else if (strcmp(cmd_args[0], "cd") == 0 && cmd_args[1] != NULL)
             {
-                cd_dirname(cmd_arg);
+                cd_dirname(condense(cmd_args[1]));
             }
-            else if (strcmp(cmd_name, "mkfile") == 0 && cmd_arg != NULL)
+            else if (strcmp(cmd_args[0], "mkfile") == 0 && cmd_args[1] != NULL)
             {
-                sd_mkfile_filename(cmd_arg);
+                sd_mkfile_filename(condense(cmd_args[1]));
             }
-            else if (strcmp(cmd_name, "mkdir") == 0 && cmd_arg != NULL)
+            else if (strcmp(cmd_args[0], "mkdir") == 0 && cmd_args[1] != NULL)
             {
-                sd_mkdir_filename(cmd_arg);
+                sd_mkdir_filename(condense(cmd_args[1]));
             }
-            else if (strcmp(cmd_name, "rm") == 0 && cmd_arg != NULL)
+            else if (strcmp(cmd_args[0], "rm") == 0 && cmd_args[1] != NULL)
             {
-                sd_rm_filename(cmd_arg);
+                sd_rm_filename(condense(cmd_args[1]));
             }
-            else if (strcmp(cmd_name, "rmdir") == 0 && cmd_arg != NULL)
+            else if (strcmp(cmd_args[0], "rmdir") == 0 && cmd_args[1] != NULL)
             {
-                sd_rmdir_dirname(cmd_arg);
+                sd_rmdir_dirname(condense(cmd_args[1]));
+            }
+            else if (strcmp(cmd_args[0], "mv") == 0 && cmd_args[1] != NULL && cmd_args[2] != NULL)
+            {
+                sd_mv_filename(condense(cmd_args[1]), condense(cmd_args[2]));
             }
             else
             {
@@ -183,7 +247,7 @@ void run_command(const char *command)
 
     if (!command_found)
     {
-        printf("%s ?\nType 'help' for a list of commands.\n", cmd_name);
+        printf("%s ?\nType 'help' for a list of commands.\n", cmd_args[0]);
     }
     user_interrupt = false;
 }
@@ -279,8 +343,8 @@ void beep()
 void box()
 {
     printf("A box using the DEC Special Character\nSet:\n\n");
-    printf("\033[38;5;208m");  // Set foreground colour to orange
-    printf("\033[?25l"); // Hide cursor
+    printf("\033[38;5;208m"); // Set foreground colour to orange
+    printf("\033[?25l");      // Hide cursor
 
     // Switch to DEC Special Character Set and draw a box
     // Visual representation of what will be drawn:
@@ -464,10 +528,10 @@ void dir()
 
 void sd_dir_dirname(const char *dirname)
 {
-    fat32_dir_t dir;
+    fat32_file_t dir;
     fat32_entry_t dir_entry;
 
-    fat32_error_t result = fat32_dir_open(&dir, dirname);
+    fat32_error_t result = fat32_open(&dir, dirname);
     if (result != SD_OK)
     {
         printf("Error: %s\n", fat32_error_string(result));
@@ -503,7 +567,7 @@ void sd_dir_dirname(const char *dirname)
         }
     } while (dir_entry.filename[0]);
 
-    fat32_dir_close(&dir);
+    fat32_close(&dir);
 }
 
 void sd_more()
@@ -680,7 +744,7 @@ void sd_mkdir_filename(const char *dirname)
         return;
     }
 
-    fat32_dir_t dir;
+    fat32_file_t dir;
     fat32_error_t result = fat32_dir_create(&dir, dirname);
     if (result != SD_OK)
     {
@@ -689,7 +753,7 @@ void sd_mkdir_filename(const char *dirname)
     }
 
     printf("Directory '%s' created.\n", dirname);
-    fat32_dir_close(&dir);
+    fat32_close(&dir);
 }
 
 void sd_rm()
@@ -709,7 +773,7 @@ void sd_rm_filename(const char *filename)
         return;
     }
 
-    fat32_error_t result = fat32_file_delete(filename);
+    fat32_error_t result = fat32_delete(filename);
     if (result != FAT32_OK)
     {
         printf("Error: %s\n", fat32_error_string(result));
@@ -736,7 +800,7 @@ void sd_rmdir_dirname(const char *dirname)
         return;
     }
 
-    fat32_error_t result = fat32_dir_delete(dirname);
+    fat32_error_t result = fat32_delete(dirname);
     if (result != FAT32_OK)
     {
         printf("Error: %s\n", fat32_error_string(result));
@@ -744,4 +808,45 @@ void sd_rmdir_dirname(const char *dirname)
     }
 
     printf("Directory '%s' removed.\n", dirname);
+}
+
+void sd_mv(void)
+{
+    printf("Error: No source or destination specified.\n");
+    printf("Usage: mv <oldname> <newname>\n");
+    printf("Example: mv oldfile.txt newfile.txt\n");
+}
+
+void sd_mv_filename(const char *oldname, const char *newname)
+{
+    if (oldname == NULL || strlen(oldname) == 0 || newname == NULL || strlen(newname) == 0)
+    {
+        printf("Error: No source or destination specified.\n");
+        printf("Usage: mv <oldname> <newname>\n");
+        printf("Example: mv oldfile.txt newfile.txt\n");
+        return;
+    }
+
+    struct stat st;
+    char full_newname[FAT32_MAX_PATH_LEN];
+
+    if (stat(newname, &st) == 0 && S_ISDIR(st.st_mode))
+    {
+        // newname is a directory, append basename of oldname
+        const char *old_basename = basename((char *)oldname);
+        size_t len = strlen(newname);
+        snprintf(full_newname, sizeof(full_newname), "%s%s%s",
+                 newname,
+                 (len > 0 && newname[len - 1] != '/') ? "/" : "",
+                 old_basename);
+        newname = full_newname;
+    }
+
+    if (rename(oldname, newname) < 0)
+    {
+        printf("Cannot move\n'%s'\nto\n'%s':\n%s\n", oldname, newname, strerror(errno));
+        return;
+    }
+
+    printf("'%s' moved to '%s'.\n", oldname, newname);
 }
