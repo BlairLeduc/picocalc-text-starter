@@ -278,8 +278,6 @@ int _write(int fd, const char *buffer, int length)
         errno = EIO; // I/O error
         return -1; // Failure
     }
-
-    return 0; 
 }
 
 int _fstat(int fd, struct stat *buf)
