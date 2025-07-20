@@ -14,6 +14,15 @@ void set_onboard_led(uint8_t led)
     led_set(led & 0x01);
 }
 
+#include <ctype.h>
+
+void str_to_lower(char *s) {
+    while (*s) {
+        *s = tolower((unsigned char)*s);
+        s++;
+    }
+}
+
 void readline(char *buffer, size_t size)
 {
     size_t index = 0;
@@ -75,6 +84,9 @@ int main()
 
         printf("\033[1q\n"); // Turn on the LED so the user knows input is being processed
 
+        // Convert the input to lowercase for case-insensitive command matching
+        str_to_lower(buffer);
+        
         run_command(buffer); // Call the command handler
 
         printf("\033[q\nReady.\n"); // Turn off the LED and prompt for input again
