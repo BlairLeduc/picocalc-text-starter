@@ -97,7 +97,7 @@ char *condense(char *s)
 
 char *basename(const char *path)
 {
-    const char *last_slash = strechr(path, '/');
+    const char *last_slash = strrchr(path, '/');
     if (last_slash)
     {
         return (char *)(last_slash + 1); // Return after the last slash
