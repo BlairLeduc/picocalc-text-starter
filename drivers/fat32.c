@@ -1892,7 +1892,7 @@ fat32_error_t fat32_dir_read(fat32_file_t *dir, fat32_entry_t *dir_entry)
         return FAT32_ERROR_READ_FAILED;
     }
 
-    if (dir->attributes & ~FAT32_ATTR_DIRECTORY)
+    if (!(dir->attributes & FAT32_ATTR_DIRECTORY))
     {
         return FAT32_ERROR_NOT_A_DIRECTORY;
     }
