@@ -20,6 +20,7 @@
 
 volatile bool user_interrupt = false;
 extern void readline(char *buffer, size_t size);
+uint8_t columns = 40;
 
 // Command table - map of command names to functions
 static const command_t commands[] = {
@@ -423,10 +424,12 @@ void width_set(const char *width)
 
     if (strcmp(width, "40") == 0)
     {
+        columns = 40;
         lcd_set_font(&font_8x10);
     }
     else if (strcmp(width, "64") == 0)
     {
+        columns = 64;
         lcd_set_font(&font_5x10);
     }
     else
@@ -682,7 +685,7 @@ void sd_read_filename(const char *filename)
             *line_end = '\0';
             printf("%s\n", line_start);
             size_t line_len = strlen(line_start);
-            int screen_lines = (int)((line_len + 40) / 40); // Round up
+            int screen_lines = (int)((line_len + columns - 1) / columns); // Round up
             if (screen_lines == 0)
             {
                 screen_lines = 1;

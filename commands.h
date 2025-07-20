@@ -7,6 +7,8 @@ typedef struct {
     const char* description;
 } command_t;
 
+extern uint8_t columns; // Global variable for terminal width
+
 // Forward declarations
 void backlight(void);
 void battery(void);

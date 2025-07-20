@@ -360,7 +360,7 @@ void displaytest()
 
     absolute_time_t start_time = get_absolute_time();
 
-    if (lcd_get_columns() == 40)
+    if (columns == 40)
     {
         while (!user_interrupt && row <= 2000)
         {
