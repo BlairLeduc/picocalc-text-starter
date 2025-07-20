@@ -78,6 +78,7 @@ void lcd_set_underscore(bool underscore_on);
 void lcd_set_bold(bool bold_on);
 void lcd_set_font(const font_t *new_font);
 uint8_t lcd_get_columns(void);
+uint8_t lcd_get_glyph_width(void);
 
 // Display control functions
 void lcd_reset(void);

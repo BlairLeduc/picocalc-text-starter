@@ -79,6 +79,12 @@ uint8_t lcd_get_columns(void)
     return WIDTH / font->width;
 }
 
+uint8_t lcd_get_glyph_width(void)
+{
+    // Return the width of the current font glyph
+    return font->width;
+}
+
 // Set foreground colour
 void lcd_set_foreground(uint16_t colour)
 {
