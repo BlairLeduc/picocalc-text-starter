@@ -33,13 +33,26 @@ Set the background colour for text.
 - colour – the RGB565 colour to use for text
 
 
-## lcd_set_attributes
+## lcd_set_reverse
 
 `void lcd_set_reverse(bool reverse_on)`
+
+Set the reverse video mode for text. In reverse video mode, the foreground colour is used for the background and the background colour is used for the text.
 
 ### Parameters
 
 - reverse_on – true to enable reverse video mode, false to disable
+
+
+
+`void lcd_set_reverse(bool reverse_on)`
+
+Set the reverse video mode for text. In reverse video mode, the foreground colour is used for the background and the background colour is used for the text.
+
+### Parameters
+
+- reverse_on – true to enable reverse video mode, false to disable
+
 
 
 ## lcd_set_underscore
