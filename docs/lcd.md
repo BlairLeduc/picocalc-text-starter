@@ -45,28 +45,23 @@ Set the reverse video mode for text. In reverse video mode, the foreground colou
 
 
 
-`void lcd_set_reverse(bool reverse_on)`
-
-Set the reverse video mode for text. In reverse video mode, the foreground colour is used for the background and the background colour is used for the text.
-
-### Parameters
-
-- reverse_on – true to enable reverse video mode, false to disable
-
-
-
 ## lcd_set_underscore
 
 `void lcd_set_underscore(bool underscore_on)`
+
+Set the underscore mode for text. In underscore mode, an underscore is drawn under the text.
 
 ### Parameters
 
 - underscore_on – true to enable underscore mode, false to disable
 
 
+
 ## lcd_set_bold
 
 `void lcd_set_bold(bool bold_on)`
+
+Set the bold mode for text. In bold mode, the text is drawn with a thicker font.
 
 ### Parameters
 
