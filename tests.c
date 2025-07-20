@@ -4,6 +4,7 @@
 
 #include "drivers/audio.h"
 #include "drivers/fat32.h"
+#include "drivers/lcd.h"
 #include "tests.h"
 
 extern volatile bool user_interrupt;
@@ -359,10 +360,21 @@ void displaytest()
 
     absolute_time_t start_time = get_absolute_time();
 
-    while (!user_interrupt && row <= 2000)
+    if (lcd_get_columns() == 40)
     {
-        int colour = 16 + (row % 215);
-        printf("\033[38;5;%dmRow: %04d 01234567890ABCDEFGHIJKLMNOPQRS", colour, row++);
+        while (!user_interrupt && row <= 2000)
+        {
+            int colour = 16 + (row % 215);
+            printf("\033[38;5;%dmRow: %04d 01234567890ABCDEFGHIJKLMNOPQRS", colour, row++);
+        }
+    }
+    else
+    {
+        while (!user_interrupt && row <= 2000)
+        {
+            int colour = 16 + (row % 215);
+            printf("\033[38;5;%dmRow: %04d 01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFG", colour, row++);
+        }
     }
 
     absolute_time_t end_time = get_absolute_time();

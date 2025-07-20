@@ -1,6 +1,7 @@
 #pragma once
 
 #include "pico/stdlib.h"
+#include "font.h"
 
 #define LCD_SPI         (spi1)          // SPI interface for the LCD display
 
@@ -59,9 +60,7 @@
 #define WIDTH           (320)           // pixels across the LCD
 #define HEIGHT          (320)           // pixels down the LCD
 #define FRAME_HEIGHT    (480)           // frame memory height in pixels
-#define COLUMNS         (WIDTH>>3)      // number of glyphs that fit in a line
 #define ROWS            (HEIGHT/GLYPH_HEIGHT) // number of lines that fit on the LCD
-#define MAX_COL         (COLUMNS - 1)   // maximum column index (0-based)
 #define MAX_ROW         (ROWS - 1)      // maximum row index (0-based)
 
 // Handy macros
@@ -77,6 +76,8 @@ void lcd_set_background(uint16_t colour);
 void lcd_set_reverse(bool reverse_on);
 void lcd_set_underscore(bool underscore_on);
 void lcd_set_bold(bool bold_on);
+void lcd_set_font(const font_t *new_font);
+uint8_t lcd_get_columns(void);
 
 // Display control functions
 void lcd_reset(void);

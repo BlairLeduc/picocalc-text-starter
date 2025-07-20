@@ -51,7 +51,8 @@ add_executable(picocalc-text-starter
         drivers/display.h
         drivers/fat32.c
         drivers/fat32.h
-        drivers/font.c
+        drivers/font-5x10.c
+        drivers/font-8x10.c
         drivers/font.h
         drivers/keyboard.c
         drivers/keyboard.h
@@ -68,7 +69,7 @@ add_executable(picocalc-text-starter
         )
 
 pico_set_program_name(picocalc-text-starter "picocalc-text-starter")
-pico_set_program_version(picocalc-text-starter "0.6")
+pico_set_program_version(picocalc-text-starter "0.7")
 
 
 # Generate PIO header

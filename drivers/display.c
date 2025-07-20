@@ -265,7 +265,7 @@ void display_emit(char ch)
                 row = MIN(row + parameters[0], MAX_ROW);
                 break;
             case 'C': // CUF – Cursor Forward
-                column = MIN(column + parameters[0], MAX_COL);
+                column = MIN(column + parameters[0], lcd_get_columns() - 1);
                 break;
             case 'D': // CUB - Cursor Backward
                 column = MAX(0, column - parameters[0]);
@@ -379,8 +379,8 @@ void display_emit(char ch)
                 break;
             case 'f': // HVP – Horizontal and Vertical Position
             case 'H': // CUP – Cursor Position
-                row = MIN(parameters[0], MAX_ROW) - 1;
-                column = MIN(parameters[1], MAX_COL) - 1;
+                row = MIN(parameters[0] - 1, MAX_ROW - 1);
+                column = MIN(parameters[1] - 1, lcd_get_columns() - 1);
                 break;
             case CHR_CAN:                      // cancel the current escape sequence
             case CHR_SUB:                      // same as CAN
@@ -498,7 +498,7 @@ void display_emit(char ch)
             ring_bell(); // ring the bell
             break;
         case CHR_HT:
-            column += MIN(((column + 4) & ~3), MAX_COL); // move cursor forward by 1 tabstop (but not beyond the end of the line)
+            column += MIN(((column + 4) & ~3), lcd_get_columns() - 1); // move cursor forward by 1 tabstop (but not beyond the end of the line)
             break;
         case CHR_LF:
         case CHR_VT:
@@ -540,7 +540,7 @@ void display_emit(char ch)
     }
 
     // Handle wrapping and scrolling
-    if (column > MAX_COL) // wrap around at end of the line
+    if (column > lcd_get_columns() - 1) // wrap around at end of the line
     {
         column = 0;
         row++;

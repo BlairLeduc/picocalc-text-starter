@@ -18,7 +18,6 @@
 #include "pico/multicore.h"
 #include "hardware/spi.h"
 
-#include "font.h"
 #include "lcd.h"
 
 static bool lcd_initialised = false; // flag to indicate if the LCD is initialised
@@ -28,12 +27,12 @@ static uint16_t lcd_y_offset = 0; // offset for vertical scrolling
 static uint16_t foreground = 0xFFFF; // default foreground colour (white)
 static uint16_t background = 0x0000; // default background colour (black)
 
-static bool underscore = false;    // underscore state
-static bool reverse = false;       // reverse video state
-static bool bold = false;          // bold text state
+static bool underscore = false; // underscore state
+static bool reverse = false;    // reverse video state
+static bool bold = false;       // bold text state
 
 // Text drawing
-extern uint8_t font[];
+const font_t *font = &font_8x10; // default font is 8x10
 static uint16_t char_buffer[8 * GLYPH_HEIGHT] __attribute__((aligned(4)));
 
 // Background processing
@@ -66,6 +65,18 @@ void lcd_set_bold(bool bold_on)
 {
     // Toggles the bold state. Bold text is implemented in the lcd_putc function.
     bold = bold_on;
+}
+
+void lcd_set_font(const font_t *new_font)
+{
+    // Set the new font
+    font = new_font;
+}
+
+uint8_t lcd_get_columns(void)
+{
+    // Calculate the number of columns based on the font width and display width
+    return WIDTH / font->width;
 }
 
 // Set foreground colour
@@ -317,38 +328,65 @@ void lcd_clear_screen()
 // Draw a character at the specified position
 void lcd_putc(uint8_t column, uint8_t row, uint8_t c)
 {
-    uint8_t *glyph = &font[c * GLYPH_HEIGHT];
+    const uint8_t *glyph = &font->glyphs[c * GLYPH_HEIGHT];
     uint16_t *buffer = char_buffer;
 
-    for (uint8_t i = 0; i < GLYPH_HEIGHT; i++, glyph++)
+    if (font->width == 8)
     {
-        if (i < GLYPH_HEIGHT - 1)
+        for (uint8_t i = 0; i < GLYPH_HEIGHT; i++, glyph++)
         {
-            // Fill the row with the glyph data
-            *(buffer++) = (*glyph & 0x80) ? foreground : background;
-            *(buffer++) = (*glyph & 0x40) || (bold && (*glyph & 0x80)) ? foreground : background;
-            *(buffer++) = (*glyph & 0x20) || (bold && (*glyph & 0x40)) ? foreground : background;
-            *(buffer++) = (*glyph & 0x10) || (bold && (*glyph & 0x20)) ? foreground : background;
-            *(buffer++) = (*glyph & 0x08) || (bold && (*glyph & 0x10)) ? foreground : background;
-            *(buffer++) = (*glyph & 0x04) || (bold && (*glyph & 0x08)) ? foreground : background;
-            *(buffer++) = (*glyph & 0x02) || (bold && (*glyph & 0x04)) ? foreground : background;
-            *(buffer++) = (*glyph & 0x01) || (bold && (*glyph & 0x02)) ? foreground : background;
+            if (i < GLYPH_HEIGHT - 1)
+            {
+                // Fill the row with the glyph data
+                *(buffer++) = (*glyph & 0x80) ? foreground : background;
+                *(buffer++) = (*glyph & 0x40) || (bold && (*glyph & 0x80)) ? foreground : background;
+                *(buffer++) = (*glyph & 0x20) || (bold && (*glyph & 0x40)) ? foreground : background;
+                *(buffer++) = (*glyph & 0x10) || (bold && (*glyph & 0x20)) ? foreground : background;
+                *(buffer++) = (*glyph & 0x08) || (bold && (*glyph & 0x10)) ? foreground : background;
+                *(buffer++) = (*glyph & 0x04) || (bold && (*glyph & 0x08)) ? foreground : background;
+                *(buffer++) = (*glyph & 0x02) || (bold && (*glyph & 0x04)) ? foreground : background;
+                *(buffer++) = (*glyph & 0x01) || (bold && (*glyph & 0x02)) ? foreground : background;
+            }
+            else
+            {
+                // The last row is where the underscore is drawn, but if no underscore is set, fill with glyph data
+                *(buffer++) = (*glyph & 0x80) || underscore ? foreground : background;
+                *(buffer++) = (*glyph & 0x40) || underscore ? foreground : background;
+                *(buffer++) = (*glyph & 0x20) || underscore ? foreground : background;
+                *(buffer++) = (*glyph & 0x10) || underscore ? foreground : background;
+                *(buffer++) = (*glyph & 0x08) || underscore ? foreground : background;
+                *(buffer++) = (*glyph & 0x04) || underscore ? foreground : background;
+                *(buffer++) = (*glyph & 0x02) || underscore ? foreground : background;
+                *(buffer++) = (*glyph & 0x01) || underscore ? foreground : background;
+            }
         }
-        else
+    }
+    else
+    {
+        for (uint8_t i = 0; i < GLYPH_HEIGHT; i++, glyph++)
         {
-            // The last row is where the underscore is drawn, but if no underscore is set, fill with glyph data
-            *(buffer++) = (*glyph & 0x80) || underscore ? foreground : background;
-            *(buffer++) = (*glyph & 0x40) || underscore ? foreground : background;
-            *(buffer++) = (*glyph & 0x20) || underscore ? foreground : background;
-            *(buffer++) = (*glyph & 0x10) || underscore ? foreground : background;
-            *(buffer++) = (*glyph & 0x08) || underscore ? foreground : background;
-            *(buffer++) = (*glyph & 0x04) || underscore ? foreground : background;
-            *(buffer++) = (*glyph & 0x02) || underscore ? foreground : background;
-            *(buffer++) = (*glyph & 0x01) || underscore ? foreground : background;
+            if (i < GLYPH_HEIGHT - 1)
+            {
+                // Fill the row with the glyph data
+                *(buffer++) = (*glyph & 0x10) ? foreground : background;
+                *(buffer++) = (*glyph & 0x08) ? foreground : background;
+                *(buffer++) = (*glyph & 0x04) ? foreground : background;
+                *(buffer++) = (*glyph & 0x02) ? foreground : background;
+                *(buffer++) = (*glyph & 0x01) ? foreground : background;
+            }
+            else
+            {
+                // The last row is where the underscore is drawn, but if no underscore is set, fill with glyph data
+                *(buffer++) = (*glyph & 0x10) || underscore ? foreground : background;
+                *(buffer++) = (*glyph & 0x08) || underscore ? foreground : background;
+                *(buffer++) = (*glyph & 0x04) || underscore ? foreground : background;
+                *(buffer++) = (*glyph & 0x02) || underscore ? foreground : background;
+                *(buffer++) = (*glyph & 0x01) || underscore ? foreground : background;
+            }
         }
     }
 
-    lcd_blit(char_buffer, column << 3, row * GLYPH_HEIGHT, 8, GLYPH_HEIGHT);
+    lcd_blit(char_buffer, column * font->width, row * GLYPH_HEIGHT, font->width, GLYPH_HEIGHT);
 }
 
 //
@@ -363,8 +401,8 @@ void lcd_putc(uint8_t column, uint8_t row, uint8_t c)
 // cursor when printing these if you want to see the box drawing glyphs
 // uncorrupted.
 
-static uint8_t cursor_column = 0;      // cursor x position for drawing
-static uint8_t cursor_row = 0;      // cursor y position for drawing
+static uint8_t cursor_column = 0;  // cursor x position for drawing
+static uint8_t cursor_row = 0;     // cursor y position for drawing
 static bool cursor_enabled = true; // cursor visibility state
 
 // Enable or disable the cursor
@@ -385,13 +423,14 @@ bool lcd_cursor_enabled()
 // This function updates the cursor position and ensures it is within the bounds of the display.
 void lcd_move_cursor(uint8_t column, uint8_t row)
 {
+    uint8_t max_col = lcd_get_columns() - 1;
     // Move the cursor to the specified position
     cursor_column = column;
     cursor_row = row;
 
     // Ensure the cursor position is within bounds
-    if (cursor_column > MAX_COL)
-        cursor_column = MAX_COL;
+    if (cursor_column > max_col)
+        cursor_column = max_col;
     if (cursor_row > MAX_ROW)
         cursor_row = MAX_ROW;
 }
@@ -401,7 +440,7 @@ void lcd_draw_cursor()
 {
     if (cursor_enabled)
     {
-        lcd_solid_rectangle(foreground, cursor_column << 3, ((cursor_row + 1) * GLYPH_HEIGHT) - 1, 8, 1);
+        lcd_solid_rectangle(foreground, cursor_column * font->width, ((cursor_row + 1) * GLYPH_HEIGHT) - 1, font->width, 1);
     }
 }
 
@@ -410,10 +449,9 @@ void lcd_erase_cursor()
 {
     if (cursor_enabled)
     {
-        lcd_solid_rectangle(background, cursor_column << 3, ((cursor_row + 1) * GLYPH_HEIGHT) - 1, 8, 1);
+        lcd_solid_rectangle(background, cursor_column * font->width, ((cursor_row + 1) * GLYPH_HEIGHT) - 1, font->width, 1);
     }
 }
-
 
 //
 //  Display control functions
@@ -478,7 +516,8 @@ bool on_cursor_timer(repeating_timer_t *rt)
 // Initialize the LCD display
 void lcd_init()
 {
-    if (lcd_initialised) {
+    if (lcd_initialised)
+    {
         return; // already initialized
     }
 
