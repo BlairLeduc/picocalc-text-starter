@@ -65,7 +65,7 @@ char *strechr(const char *s, int c)
             }
         }
         s++;
-    } while (*s != (char)c);
+    } while (*s && *s != (char)c);
 
     return (char *)s;
 }
@@ -179,7 +179,7 @@ void run_command(const char *command)
     {
         cmd_args[arg_count++] = cptr; // Set cmd_name to the current position
         cptr = strechr(cptr, ' ');
-        if (cptr)
+        if (*cptr)
         {
             *cptr++ = '\0'; // Terminate argument at the space
         }

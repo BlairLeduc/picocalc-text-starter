@@ -1508,6 +1508,8 @@ fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, s
         *bytes_written = 0;
     }
 
+    uint32_t old_file_size = file->file_size;
+
     // Ensure current_cluster is correct for current file position
     uint32_t cluster = file->start_cluster;
     uint32_t cluster_offset = file->position / bytes_per_cluster;
@@ -1620,6 +1622,41 @@ fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, s
     if (bytes_written)
     {
         *bytes_written = total_written;
+    }
+
+    // --- Truncate cluster chain if file shrank ---
+    if (file->file_size < old_file_size)
+    {
+        // Calculate clusters needed for new size
+        uint32_t needed_clusters = (file->file_size == 0) ? 0 : (file->file_size + bytes_per_cluster - 1) / bytes_per_cluster;
+        uint32_t current_clusters = (old_file_size == 0) ? 0 : (old_file_size + bytes_per_cluster - 1) / bytes_per_cluster;
+
+        if (needed_clusters < current_clusters && file->start_cluster >= 2)
+        {
+            uint32_t last_cluster_to_keep = file->start_cluster;
+            if (needed_clusters > 0)
+            {
+                // Seek to last cluster to keep
+                fat32_error_t seek_res = seek_to_cluster(file->start_cluster, needed_clusters - 1, &last_cluster_to_keep);
+                if (seek_res == FAT32_OK)
+                {
+                    uint32_t first_cluster_to_free = 0;
+                    if (read_cluster_fat_entry(last_cluster_to_keep, &first_cluster_to_free) == FAT32_OK)
+                    {
+                        // Mark end of chain
+                        write_cluster_fat_entry(last_cluster_to_keep, FAT32_FAT_ENTRY_EOC);
+                        // Free the rest
+                        release_cluster_chain(first_cluster_to_free);
+                    }
+                }
+            }
+            else
+            {
+                // File is now empty, free entire chain
+                release_cluster_chain(file->start_cluster);
+                file->start_cluster = 0;
+            }
+        }
     }
 
     // Update directory entry file size on disk
