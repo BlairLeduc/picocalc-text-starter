@@ -126,6 +126,7 @@ These commands provide examples of how to use the drivers:
 - **free** – Shows the free space remaining on the SD card
 - **mkdir** – Create a new directory
 - **mkfile** – Create a new file
+- **mv** – Move a file or directory
 - **more** – Display the contents of a file
 - **play** – Play a named song (use 'songs' for a list of available songs)
 - **pwd** – Displays the current directory
@@ -135,6 +136,7 @@ These commands provide examples of how to use the drivers:
 - **songs** – List all available songs
 - **test** – Run a named test (use 'tests' for a list of available tests)
 - **tests** – List all available tests
+- **width** – Set the width of the display
 - **help** – Lists the available commands
 
 ## Songs

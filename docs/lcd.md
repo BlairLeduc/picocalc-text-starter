@@ -11,6 +11,80 @@ This driver uses very little RAM leaving more for your project as a frame buffer
 Initialise the LCD controller.
 
 
+## lcd_set_colour
+
+`void lcd_set_foreground(uint16_t colour)`
+
+Set the foreground colour for text.
+
+### Parameters
+
+- colour – the RGB565 colour to use for text
+
+
+## lcd_set_background
+
+`void lcd_set_background(uint16_t colour)`
+
+Set the background colour for text.
+
+### Parameters
+
+- colour – the RGB565 colour to use for text
+
+
+## lcd_set_attributes
+
+`void lcd_set_reverse(bool reverse_on)`
+
+### Parameters
+
+- reverse_on – true to enable reverse video mode, false to disable
+
+
+## lcd_set_underscore
+
+`void lcd_set_underscore(bool underscore_on)`
+
+### Parameters
+
+- underscore_on – true to enable underscore mode, false to disable
+
+
+## lcd_set_bold
+
+`void lcd_set_bold(bool bold_on)`
+
+### Parameters
+
+- bold_on – true to enable bold mode, false to disable
+
+
+## lcd_set_font
+
+`void lcd_set_font(const font_t *new_font)`
+
+Sets the font to use for text.
+
+### Parameters
+
+- new_font – pointer to the new font to use
+
+
+## lcd_get_columns
+
+`uint8_t lcd_get_columns(void)`
+
+Returns the number of columns in the display.
+
+
+## lcd_get_glyph_width
+
+`uint8_t lcd_get_glyph_width(void)`
+
+Returns the width of a glyph in pixels.
+
+
 ## lcd_display_on
 
 `void lcd_display_on(void)`
@@ -23,6 +97,20 @@ Turn the display on.
 `void lcd_display_off(void)`
 
 Turn the display off.
+
+
+## lcd_set_window
+
+`void lcd_set_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)`
+
+Sets the window for drawing on the display.
+
+### Parameters
+
+- x0 – left edge of the window in pixels
+- y0 – top edge of the window in pixels
+- x1 – right edge of the window in pixels
+- y1 – bottom edge of the window in pixels
 
 
 ## lcd_blit
