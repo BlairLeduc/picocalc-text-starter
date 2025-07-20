@@ -47,6 +47,8 @@ bool fat32_initialised = false;               // Set to true after successful fi
 
 // FAT32 file system state
 static fat32_boot_sector_t boot_sector;
+static fat32_fsinfo_t fsinfo;
+
 static uint32_t volume_start_block = 0; // First block of the volume
 static uint32_t first_data_sector;      // First sector of the data region
 static uint32_t data_region_sectors;    // Total sectors in the data region
@@ -180,6 +182,12 @@ static fat32_error_t is_valid_fat32_boot_sector(const fat32_boot_sector_t *bs)
     return FAT32_OK;
 }
 
+static fat32_error_t update_fsinfo()
+{
+    // Write the updated FSInfo sector back to disk
+    return write_sector(boot_sector.fat32_info, (const uint8_t *)&fsinfo);
+}
+
 static fat32_error_t read_cluster_fat_entry(uint32_t cluster, uint32_t *value)
 {
     // The first data cluster is 2, less than 2 is invalid
@@ -227,8 +235,11 @@ static fat32_error_t write_cluster_fat_entry(uint32_t cluster, uint32_t value)
 
 static fat32_error_t get_next_free_cluster(uint32_t *cluster)
 {
+    // Start searching from next free or first data cluster
+    uint32_t start_cluster = fsinfo.next_free != 0xFFFFFFFF ? fsinfo.next_free : 2;
+
     // Iterate through the FAT to find a free cluster
-    for (uint32_t i = 2; i < cluster_count + 2; i++)
+    for (uint32_t i = start_cluster; i < cluster_count + 2; i++)
     {
         uint32_t value;
         RETURN_ON_ERROR(read_cluster_fat_entry(i, &value));
@@ -244,6 +255,9 @@ static fat32_error_t get_next_free_cluster(uint32_t *cluster)
 
 static fat32_error_t release_cluster_chain(uint32_t start_cluster)
 {
+    uint32_t total_clusters = 0;
+    uint32_t lowest_cluster = 0xFFFFFFFF;
+
     if (start_cluster < 2)
     {
         return FAT32_ERROR_INVALID_PARAMETER;
@@ -255,8 +269,23 @@ static fat32_error_t release_cluster_chain(uint32_t start_cluster)
         uint32_t next_cluster;
         RETURN_ON_ERROR(read_cluster_fat_entry(cluster, &next_cluster));
         RETURN_ON_ERROR(write_cluster_fat_entry(cluster, FAT32_FAT_ENTRY_FREE));
+        total_clusters++;
+        if (cluster < lowest_cluster)
+        {
+            lowest_cluster = cluster; // Find the lowest cluster number in the chain
+        }
         cluster = next_cluster;
     }
+
+    // Update FSInfo with the new free count
+    fsinfo.free_count += total_clusters;
+    if (fsinfo.next_free > lowest_cluster)
+    {
+        fsinfo.next_free = lowest_cluster; // Update next free cluster if needed
+    }
+    // Write the updated FSInfo sector back to disk
+    RETURN_ON_ERROR(write_sector(boot_sector.fat32_info, (const uint8_t *)&fsinfo));
+
     return FAT32_OK;
 }
 
@@ -277,6 +306,13 @@ static fat32_error_t allocate_and_link_cluster(uint32_t last_cluster, uint32_t *
     RETURN_ON_ERROR(get_next_free_cluster(new_cluster));
     RETURN_ON_ERROR(write_cluster_fat_entry(last_cluster, *new_cluster));
     RETURN_ON_ERROR(write_cluster_fat_entry(*new_cluster, FAT32_FAT_ENTRY_EOC));
+
+    if (fsinfo.free_count != 0xFFFFFFFF)
+    {
+        fsinfo.free_count--; // Decrease free count
+        update_fsinfo();     // Update FSInfo sector
+    }
+
     return FAT32_OK;
 }
 
@@ -391,6 +427,18 @@ fat32_error_t fat32_mount(void)
     }
 
     current_dir_cluster = boot_sector.root_cluster; // Start at root directory
+
+    // Cache the FSInfo sector
+    RETURN_ON_ERROR(read_sector(boot_sector.fat32_info, sector_buffer));
+    memcpy(&fsinfo, sector_buffer, sizeof(fat32_fsinfo_t));
+
+    if (fsinfo.lead_sig != 0x41615252 ||
+        fsinfo.struc_sig != 0x61417272 ||
+        fsinfo.trail_sig != 0xAA550000)
+    {
+        return FAT32_ERROR_INVALID_FORMAT; // FSInfo is not valid
+    }
+
     fat32_mounted = true;
     return FAT32_OK;
 }
@@ -448,22 +496,10 @@ fat32_error_t fat32_get_free_space(uint64_t *free_space)
         return mount_status;
     }
 
-    fat32_error_t result = read_sector(boot_sector.fat32_info, sector_buffer);
-    if (result != FAT32_OK)
+    if (fsinfo.free_count != 0xFFFFFFFF &&
+        fsinfo.free_count <= cluster_count)
     {
-        return result; // Error reading FSInfo sector
-    }
-
-    fat32_fsinfo_t *fsinfo = (fat32_fsinfo_t *)sector_buffer;
-
-    // Verify FSInfo signatures
-    if (fsinfo->lead_sig == 0x41615252 &&
-        fsinfo->struc_sig == 0x61417272 &&
-        fsinfo->trail_sig == 0xAA550000 &&
-        fsinfo->free_count != 0xFFFFFFFF &&
-        fsinfo->free_count <= cluster_count)
-    {
-        *free_space = ((uint64_t)fsinfo->free_count) * bytes_per_cluster;
+        *free_space = ((uint64_t)fsinfo.free_count) * bytes_per_cluster;
         return FAT32_OK; // Successfully retrieved free space
     }
 
@@ -471,11 +507,7 @@ fat32_error_t fat32_get_free_space(uint64_t *free_space)
     uint64_t free_clusters = 0;
     for (uint32_t sector = 0; sector < boot_sector.fat_size_32; sector++)
     {
-        result = read_sector(boot_sector.reserved_sectors + sector, sector_buffer);
-        if (result != FAT32_OK)
-        {
-            return result; // Error reading FAT sector
-        }
+        RETURN_ON_ERROR(read_sector(boot_sector.reserved_sectors + sector, sector_buffer));
         for (int i = 0; i < FAT32_SECTOR_SIZE; i += 4)
         {
             uint32_t entry = *(uint32_t *)(sector_buffer + i) & 0x0FFFFFFF;
@@ -485,6 +517,9 @@ fat32_error_t fat32_get_free_space(uint64_t *free_space)
             }
         }
     }
+
+    fsinfo.free_count = free_clusters; // Update FSInfo with counted free clusters
+    RETURN_ON_ERROR(write_sector(boot_sector.fat32_info, (uint8_t *)&fsinfo));
 
     *free_space = free_clusters * bytes_per_cluster;
     return FAT32_OK;
@@ -1208,6 +1243,12 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
     {
         CLOSE_AND_RETURN_ON_ERROR(get_next_free_cluster(&entry->start_cluster));
         CLOSE_AND_RETURN_ON_ERROR(write_cluster_fat_entry(entry->start_cluster, FAT32_FAT_ENTRY_EOC));
+
+        if (fsinfo.free_count != 0xFFFFFFFF)
+        {
+            fsinfo.free_count--;
+            update_fsinfo();
+        }
     }
 
     // Write 8.3 entry
@@ -1478,9 +1519,7 @@ fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, s
         {
             // Allocate a new cluster and link it
             uint32_t new_cluster = 0;
-            RETURN_ON_ERROR(get_next_free_cluster(&new_cluster));
-            RETURN_ON_ERROR(write_cluster_fat_entry(cluster, new_cluster));
-            RETURN_ON_ERROR(write_cluster_fat_entry(new_cluster, FAT32_FAT_ENTRY_EOC));
+            RETURN_ON_ERROR(allocate_and_link_cluster(cluster, &new_cluster));
             next_cluster = new_cluster;
         }
         cluster = next_cluster;
@@ -1517,6 +1556,13 @@ fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, s
             // First cluster for empty file
             RETURN_ON_ERROR(get_next_free_cluster(&new_cluster));
             RETURN_ON_ERROR(write_cluster_fat_entry(new_cluster, FAT32_FAT_ENTRY_EOC));
+
+            if (fsinfo.free_count != 0xFFFFFFFF)
+            {
+                fsinfo.free_count--;
+                update_fsinfo();
+            }
+
             file->start_cluster = new_cluster;
         }
         last_cluster = new_cluster;
