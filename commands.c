@@ -183,7 +183,7 @@ void run_command(const char *command)
         {
             *cptr++ = '\0'; // Terminate argument at the space
         }
-    } while (*cptr && arg_count < 8);
+    } while (cptr && *cptr && arg_count < 8);
 
     if (!cmd_args[0] || *cmd_args[0] == '\0')
     {
