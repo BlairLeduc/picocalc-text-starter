@@ -69,7 +69,7 @@ add_executable(picocalc-text-starter
         )
 
 pico_set_program_name(picocalc-text-starter "picocalc-text-starter")
-pico_set_program_version(picocalc-text-starter "0.7")
+pico_set_program_version(picocalc-text-starter "0.8")
 
 
 # Generate PIO header
