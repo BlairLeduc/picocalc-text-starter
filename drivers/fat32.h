@@ -68,7 +68,7 @@ typedef struct
 // Directory entry structure
 typedef struct
 {
-    char filename[256];
+    char filename[FAT32_MAX_FILENAME_LEN + 1]; // Null-terminated filename
     uint32_t size;
     uint16_t date;
     uint16_t time;

@@ -46,7 +46,7 @@ static repeating_timer_t cursor_timer;
 void lcd_set_reverse(bool reverse_on)
 {
     // swap foreground and background colors if reverse is "reversed"
-    if (reverse && !reverse_on || !reverse && reverse_on)
+    if ((reverse && !reverse_on) || (!reverse && reverse_on))
     {
         uint16_t temp = foreground;
         foreground = background;

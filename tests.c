@@ -453,8 +453,6 @@ static bool fat32_test_setup()
 
 static bool fat32_test_cleanup()
 {
-    fat32_file_t dir;
-
     printf("Cleaning up test files...\n");
 
     fat32_set_current_dir("/");
@@ -569,7 +567,7 @@ static bool fat32_test_sector_boundaries()
 
     if (bytes_written != 512)
     {
-        printf("FAIL: Wrote %lu bytes, expected 512\n", bytes_written);
+        printf("FAIL: Wrote %u bytes, expected 512\n", bytes_written);
         return false;
     }
 
@@ -588,7 +586,7 @@ static bool fat32_test_sector_boundaries()
 
     if (bytes_written != 256)
     {
-        printf("FAIL: Wrote %lu bytes, expected 256\n", bytes_written);
+        printf("FAIL: Wrote %u bytes, expected 256\n", bytes_written);
         return false;
     }
 
@@ -611,7 +609,7 @@ static bool fat32_test_sector_boundaries()
 
     if (bytes_read != 768)
     {
-        printf("FAIL: Read %lu bytes, expected 768\n", bytes_read);
+        printf("FAIL: Read %u bytes, expected 768\n", bytes_read);
         return false;
     }
 
@@ -687,7 +685,7 @@ static bool fat32_test_cluster_boundaries()
 
         if (bytes_written != chunk_size)
         {
-            printf("FAIL: Wrote %lu bytes, expected %lu\n", bytes_written, chunk_size);
+            printf("FAIL: Wrote %u bytes, expected %lu\n", bytes_written, chunk_size);
             return false;
         }
 
@@ -730,7 +728,7 @@ static bool fat32_test_cluster_boundaries()
 
         if (bytes_read != chunk_size)
         {
-            printf("FAIL: Read %lu bytes, expected %lu\n", bytes_read, chunk_size);
+            printf("FAIL: Read %u bytes, expected %lu\n", bytes_read, chunk_size);
             return false;
         }
 
@@ -974,7 +972,7 @@ static bool fat32_test_large_files()
 
             if (bytes_written != write_size)
             {
-                printf("FAIL: Wrote %lu bytes, expected %lu\n",
+                printf("FAIL: Wrote %u bytes, expected %lu\n",
                        bytes_written, write_size);
                 return false;
             }
@@ -1010,7 +1008,7 @@ static bool fat32_test_large_files()
 
         if (bytes_read != verify_size)
         {
-            printf("FAIL: Read %lu bytes, expected %lu\n", bytes_read, verify_size);
+            printf("FAIL: Read %u bytes, expected %u\n", bytes_read, verify_size);
             return false;
         }
 

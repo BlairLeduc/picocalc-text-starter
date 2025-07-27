@@ -83,16 +83,6 @@ static inline fat32_error_t write_sector(uint32_t sector, const uint8_t *buffer)
     return sd_write_block(volume_start_block + sector, buffer);
 }
 
-static fat32_error_t zero_sectors(uint32_t start_sector, uint32_t count)
-{
-    memset(sector_buffer, 0, FAT32_SECTOR_SIZE);
-    for (uint32_t i = 0; i < count; i++)
-    {
-        RETURN_ON_ERROR(write_sector(start_sector + i, sector_buffer));
-    }
-    return FAT32_OK;
-}
-
 //
 // FAT32 file system functions
 //
@@ -565,7 +555,6 @@ fat32_error_t fat32_get_volume_name(char *name, size_t name_len)
     dir.current_cluster = boot_sector.root_cluster;
     dir.position = 0;
 
-    bool found = false;
     fat32_entry_t entry;
     while (fat32_dir_read(&dir, &entry) == FAT32_OK && entry.filename[0])
     {
@@ -1125,7 +1114,6 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
 
     // Find enough free directory entries (LFN + 8.3)
     uint32_t free_entry_pos = 0;
-    uint32_t free_entry_sector = 0;
     uint32_t free_entry_cluster = dir.current_cluster;
     size_t free_count = 0;
     bool found = false;
@@ -1136,7 +1124,6 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
     {
         uint32_t cluster_offset = entry_pos % bytes_per_cluster;
         uint32_t sector_in_cluster = cluster_offset / FAT32_SECTOR_SIZE;
-        uint32_t byte_in_sector = cluster_offset % FAT32_SECTOR_SIZE;
         uint32_t sector = cluster_to_sector(cluster) + sector_in_cluster;
 
         CLOSE_AND_RETURN_ON_ERROR(read_sector(sector, sector_buffer));
@@ -1149,7 +1136,6 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
                 if (free_count == 0)
                 {
                     free_entry_pos = entry_pos + i;
-                    free_entry_sector = sector;
                     free_entry_cluster = cluster;
                 }
                 free_count++;
@@ -1548,7 +1534,7 @@ fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, s
     for (uint32_t i = current_clusters; i < needed_clusters; i++)
     {
         uint32_t new_cluster = 0;
-        fat32_error_t result;
+
         if (current_clusters > 0 || i > 0)
         {
             RETURN_ON_ERROR(allocate_and_link_cluster(last_cluster, &new_cluster));
@@ -1850,7 +1836,7 @@ fat32_error_t fat32_get_current_dir(char *path, size_t path_len)
             if ((entry.attr & FAT32_ATTR_DIRECTORY) && entry.start_cluster == cluster &&
                 strcmp(entry.filename, ".") != 0 && strcmp(entry.filename, "..") != 0)
             {
-                strncpy(components[depth], entry.filename, FAT32_MAX_FILENAME_LEN);
+                memcpy(components[depth], entry.filename, FAT32_MAX_FILENAME_LEN);
                 components[depth][FAT32_MAX_FILENAME_LEN] = '\0';
                 found_name = true;
                 break;
@@ -1921,7 +1907,6 @@ fat32_error_t fat32_dir_read(fat32_file_t *dir, fat32_entry_t *dir_entry)
     {
         uint32_t cluster_offset = dir->position % bytes_per_cluster;
         uint32_t sector_in_cluster = cluster_offset / FAT32_SECTOR_SIZE;
-        uint32_t byte_in_sector = cluster_offset % FAT32_SECTOR_SIZE;
 
         uint32_t sector = cluster_to_sector(dir->current_cluster) + sector_in_cluster;
 

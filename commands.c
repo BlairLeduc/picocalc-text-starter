@@ -466,7 +466,7 @@ static void get_str_size(char *buffer, uint32_t buffer_size, uint64_t bytes)
         unit = "KB";
     }
 
-    if (unit == "bytes" || unit == "KB")
+    if (strcmp(unit, "bytes") == 0 || strcmp(unit, "KB") == 0)
     {
         snprintf(buffer, buffer_size, "%llu %s", (unsigned long long)(bytes / divisor), unit);
     }
@@ -484,7 +484,7 @@ void sd_status()
         return;
     }
 
-    sd_error_t mount_status = fat32_get_status();
+    fat32_error_t mount_status = fat32_get_status();
     if (mount_status != FAT32_OK)
     {
         printf("SD card inserted, but unreadable.\n");
@@ -493,8 +493,8 @@ void sd_status()
     }
 
     uint64_t total_space;
-    sd_error_t result = fat32_get_total_space(&total_space);
-    if (result != SD_OK)
+    fat32_error_t result = fat32_get_total_space(&total_space);
+    if (result != FAT32_OK)
     {
         printf("SD card inserted, unable to get total space.\n");
         printf("Error: %s\n", fat32_error_string(result));
@@ -575,7 +575,7 @@ void sd_dir_dirname(const char *dirname)
     fat32_entry_t dir_entry;
 
     fat32_error_t result = fat32_open(&dir, dirname);
-    if (result != SD_OK)
+    if (result != FAT32_OK)
     {
         printf("Error: %s\n", fat32_error_string(result));
         return;
@@ -584,7 +584,7 @@ void sd_dir_dirname(const char *dirname)
     do
     {
         result = fat32_dir_read(&dir, &dir_entry);
-        if (result != SD_OK)
+        if (result != FAT32_OK)
         {
             printf("Error: %s\n", fat32_error_string(result));
             return;
@@ -767,7 +767,7 @@ void sd_mkfile_filename(const char *filename)
 
     fclose(fp);
 
-    printf("File '%s' created\nwith %u bytes written.\n", filename, total_bytes_written);
+    printf("File '%s' created\nwith %lu bytes written.\n", filename, total_bytes_written);
 }
 
 void sd_mkdir()
@@ -789,7 +789,7 @@ void sd_mkdir_filename(const char *dirname)
 
     fat32_file_t dir;
     fat32_error_t result = fat32_dir_create(&dir, dirname);
-    if (result != SD_OK)
+    if (result != FAT32_OK)
     {
         printf("Error: %s\n", fat32_error_string(result));
         return;

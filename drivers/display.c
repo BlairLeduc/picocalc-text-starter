@@ -198,7 +198,14 @@ void display_emit(char ch)
             row++;
             break;
         case 'M': // RI – Reverse Index
-            row--;
+            if (row == 0) // scroll at top of the screen
+            {
+                lcd_scroll_down();
+            }
+            else
+            {
+                row--;
+            }
             break;
         case 'c': // RIS – Reset To Initial State
             column = row = 0;
@@ -331,10 +338,7 @@ void display_emit(char ch)
                     else if (parameters[i] == 38 && i + 2 <= p_index && parameters[i + 1] == 5) // foreground 256-colour
                     {
                         uint8_t colour = parameters[i + 2];
-                        if (colour < 256)
-                        {
-                            lcd_set_foreground(xterm_palette[colour]);
-                        }
+                        lcd_set_foreground(xterm_palette[colour]);
                         i += 2; // Skip the next two parameters (5 and colour)
                     }
                     else if (parameters[i] == 39) // default foreground colour
@@ -357,10 +361,7 @@ void display_emit(char ch)
                     else if (parameters[i] == 48 && i + 2 <= p_index && parameters[i + 1] == 5) // background 256-colour
                     {
                         uint8_t colour = parameters[i + 2];
-                        if (colour < 256)
-                        {
-                            lcd_set_background(xterm_palette[colour]);
-                        }
+                        lcd_set_background(xterm_palette[colour]);
                         i += 2; // Skip the next two parameters (5 and colour)
                     }
                     else if (parameters[i] == 49) // default background colour
@@ -369,11 +370,19 @@ void display_emit(char ch)
                     }
                     else if (parameters[i] >= 90 && parameters[i] <= 97) // bright foreground colour
                     {
-                        lcd_set_foreground(bright_palette[parameters[i] - 90 + 8]);
+                        uint8_t index = parameters[i] - 90;
+                        if (index < 8) // ensure index is within bounds
+                        {
+                            lcd_set_foreground(bright_palette[index]);
+                        }
                     }
                     else if (parameters[i] >= 100 && parameters[i] <= 107) // bright background colour
                     {
-                        lcd_set_background(bright_palette[parameters[i] - 100 + 8]);
+                        uint8_t index = parameters[i] - 100;
+                        if (index < 8) // ensure index is within bounds
+                        {
+                            lcd_set_background(bright_palette[index]);
+                        }
                     }
                 }
                 break;
@@ -546,14 +555,6 @@ void display_emit(char ch)
         row++;
     }
 
-    if (row < 0) // scroll at top of the screen
-    {
-        while (row < 0) // scroll until y is non-negative
-        {
-            lcd_scroll_down(); // scroll down to make space at the top
-            row++;
-        }
-    }
     if (row > MAX_ROW) // scroll at bottom of the screen
     {
         while (row > MAX_ROW) // scroll until y is within bounds

@@ -57,7 +57,6 @@ void readline(char *buffer, size_t size)
 int main()
 {
     char buffer[40];
-    uint8_t index = 0;
 
     // Initialize the LED driver and set the LED callback
     // If the LED driver fails to initialize, we can still run the text starter
