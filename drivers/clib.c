@@ -273,13 +273,8 @@ int _write(int fd, const char *buffer, int length)
         return bytes_written; // Return number of bytes written
     }
 
-    if (length > 0)
-    {
-        errno = EIO; // I/O error
-        return -1;   // Failure
-    }
-
-    return 0;
+    errno = EIO; // Unexpected fallback, indicate I/O error
+    return -1;
 }
 
 int _fstat(int fd, struct stat *buf)
