@@ -51,6 +51,8 @@
 #define LCD_CMD_VCMPCTL (0xC5)          // VCOM control
 #define LCD_CMD_PGC     (0xE0)          // positive gamma control
 #define LCD_CMD_NGC     (0xE1)          // negative gamma control
+#define LCD_CMD_DGC1    (0xE2)          // driver gamma control 1
+#define LCD_CMD_DGC2    (0xE3)          // driver gamma control
 #define LCD_CMD_DOCA    (0xE8)          // driver output control
 #define LCD_CMD_E9      (0xE9)          // Manufacturer command
 #define LCD_CMD_F0      (0xF0)          // Manufacturer command
@@ -101,9 +103,10 @@ void lcd_solid_rectangle(uint16_t colour, uint16_t x, uint16_t y, uint16_t width
 
 // Scrolling functions
 void lcd_define_scrolling(uint16_t top_fixed_area, uint16_t bottom_fixed_area);
+void lcd_scroll_reset();
+void lcd_scroll_clear();
 void lcd_scroll_up(void);
 void lcd_scroll_down(void);
-void lcd_clear_screen(void);
 
 // Character and cursor functions
 void lcd_putc(uint8_t column, uint8_t row, uint8_t c);
@@ -114,5 +117,6 @@ void lcd_enable_cursor(bool cursor_on);
 bool lcd_cursor_enabled(void);
 
 // Initialization
+void lcd_clear_screen(void);
 void lcd_init(void);
 

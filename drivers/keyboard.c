@@ -90,9 +90,9 @@ static bool on_keyboard_timer(repeating_timer_t *rt)
                             ch &= ~0x20;
                         }
                     }
-                    else if (ch == 0x0A) // enter key is returned as LF
+                    else if (ch == KEY_ENTER) // enter key is returned as LF
                     {
-                        ch = 0x0D; // convert LF to CR
+                        ch = KEY_RETURN; // convert LF to CR
                     }
 
                     uint16_t next_head = (rx_head + 1) & (KBD_BUFFER_SIZE - 1);

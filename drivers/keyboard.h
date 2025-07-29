@@ -14,19 +14,25 @@
 #define KEY_STATE_HOLD      (2)
 #define KEY_STATE_RELEASED  (3)
 
+#define KEY_BACKSPACE       (0x08)
+#define KEY_TAB             (0x09)
+#define KEY_ENTER           (0x0A)
+#define KEY_RETURN          (0x0D)
+#define KEY_SPACE           (0x20)
+
 #define KEY_ESC             (0xB1)
 #define KEY_UP              (0xB5)
 #define KEY_DOWN            (0xB6)
 #define KEY_LEFT            (0xB4)
 #define KEY_RIGHT           (0xB7)
 
-#define KEY_BREAK           (0xd0)
+#define KEY_BREAK           (0xD0)
 #define KEY_INSERT          (0xD1)
 #define KEY_HOME            (0xD2)
 #define KEY_DEL             (0xD4)
 #define KEY_END             (0xD5)
-#define KEY_PAGE_UP         (0xd6)
-#define KEY_PAGE_DOWN       (0xd7)
+#define KEY_PAGE_UP         (0xD6)
+#define KEY_PAGE_DOWN       (0xD7)
 
 #define KEY_CAPS_LOCK       (0xC1)
 
