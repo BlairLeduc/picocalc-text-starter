@@ -251,7 +251,12 @@ void lcd_blit(uint16_t *pixels, uint16_t x, uint16_t y, uint16_t width, uint16_t
     {
         // Adjust y for vertical scroll offset and wrap within memory height
         uint16_t y_virtual = (lcd_y_offset + y) % lcd_memory_scroll_height;
-        lcd_set_window(x, lcd_scroll_top + y_virtual, x + width - 1, lcd_scroll_top + y_virtual + height - 1);
+        uint16_t y_end = lcd_scroll_top + y_virtual + height - 1;
+        if (y_end >= lcd_scroll_top + lcd_memory_scroll_height)
+        {
+            y_end = lcd_scroll_top + lcd_memory_scroll_height - 1;
+        }
+        lcd_set_window(x, lcd_scroll_top + y_virtual, x + width - 1, y_end);
     }
     else
     {
