@@ -353,6 +353,10 @@ void lcd_scroll_up()
 // Scroll the screen down one line (making space at the top)
 void lcd_scroll_down()
 {
+    // Ensure lcd_memory_scroll_height is non-zero to avoid division by zero
+    if (lcd_memory_scroll_height == 0) {
+        return; // Safely exit if the scroll height is zero
+    }
     // This will rotate the content in the scroll area down by one line
     lcd_y_offset = (lcd_y_offset - GLYPH_HEIGHT + lcd_memory_scroll_height) % lcd_memory_scroll_height;
     uint16_t scroll_area_start = lcd_scroll_top + lcd_y_offset;
