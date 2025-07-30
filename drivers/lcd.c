@@ -292,6 +292,14 @@ void lcd_solid_rectangle(uint16_t colour, uint16_t x, uint16_t y, uint16_t width
 void lcd_define_scrolling(uint16_t top_fixed_area, uint16_t bottom_fixed_area)
 {
     uint16_t scroll_area = HEIGHT - (top_fixed_area + bottom_fixed_area);
+    if (scroll_area == 0 || scroll_area > FRAME_HEIGHT)
+    {
+        // Invalid scrolling area, reset to full screen
+        top_fixed_area = 0;
+        bottom_fixed_area = 0;
+        scroll_area = FRAME_HEIGHT;
+    }
+    
     lcd_scroll_top = top_fixed_area;
     lcd_memory_scroll_height = FRAME_HEIGHT - (top_fixed_area + bottom_fixed_area);
     lcd_scroll_bottom = bottom_fixed_area;
