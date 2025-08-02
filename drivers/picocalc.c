@@ -53,7 +53,7 @@ void picocalc_chars_available_notify(void)
     }
 }
 
-stdio_driver_t my_stdio_driver = {
+stdio_driver_t picocalc_stdio_driver = {
     .out_chars = picocalc_out_chars,
     .out_flush = picocalc_out_flush,
     .in_chars = picocalc_in_chars,
@@ -69,6 +69,6 @@ void picocalc_init(led_callback_t led_set_callback)
     audio_init();
     fat32_init();
 
-    stdio_set_driver_enabled(&my_stdio_driver, true);
-    stdio_set_translate_crlf(&my_stdio_driver, true);
+    stdio_set_driver_enabled(&picocalc_stdio_driver, true);
+    stdio_set_translate_crlf(&picocalc_stdio_driver, true);
 }

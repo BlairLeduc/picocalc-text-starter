@@ -16,6 +16,9 @@
 
 #define UART_BUFFER_SIZE    256
 
+
+extern stdio_driver_t serial_stdio_driver;
+
 // Function prototypes
 void serial_init(uint baudrate, uint databits, uint stopbits, uart_parity_t parity);
 bool serial_input_available(void);

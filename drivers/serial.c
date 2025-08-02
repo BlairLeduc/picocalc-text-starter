@@ -9,6 +9,8 @@
 //
 
 #include "pico/stdlib.h"
+#include "pico/stdio/driver.h"
+
 #include "hardware/uart.h"
 #include "hardware/irq.h"
 
@@ -18,9 +20,14 @@
 
 extern volatile bool user_interrupt;
 
+void serial_chars_available_notify(void);
+
 static volatile uint8_t rx_buffer[UART_BUFFER_SIZE];
 static volatile uint16_t rx_head = 0;
 static volatile uint16_t rx_tail = 0;
+
+static void (*chars_available_callback)(void *) = NULL;
+static void *chars_available_param = NULL;
 
 // Interrupt handler for UART RX
 static void on_uart_rx()
@@ -39,6 +46,7 @@ static void on_uart_rx()
         uint16_t next_head = (rx_head + 1) & (UART_BUFFER_SIZE - 1);
         rx_buffer[rx_head] = ch;
         rx_head = next_head;
+        //serial_chars_available_notify();
     }
 }
 
@@ -67,6 +75,56 @@ void serial_put_char(char ch)
 {
     uart_putc(UART_PORT, ch);             // Send the character
 }
+
+
+static void serial_out_chars(const char *buf, int length)
+{
+    for (int i = 0; i < length; ++i)
+    {
+        serial_put_char(buf[i]);
+    }
+}
+
+static void serial_out_flush(void)
+{
+    // No flush needed for this driver
+}
+
+static int serial_in_chars(char *buf, int length)
+{
+    int n = 0;
+    while (n < length)
+    {
+        int c = serial_get_char();
+        if (c == -1)
+            break; // No key pressed
+        buf[n++] = (char)c;
+    }
+    return n;
+}
+
+static void serial_set_chars_available_callback(void (*fn)(void *), void *param)
+{
+    chars_available_callback = fn;
+    chars_available_param = param;
+}
+
+// Function to be called when characters become available
+void serial_chars_available_notify(void)
+{
+    if (chars_available_callback)
+    {
+        chars_available_callback(chars_available_param);
+    }
+}
+
+stdio_driver_t serial_stdio_driver = {
+    .out_chars = serial_out_chars,
+    .out_flush = serial_out_flush,
+    .in_chars = serial_in_chars,
+    .set_chars_available_callback = serial_set_chars_available_callback,
+    .next = NULL,
+};
 
 void serial_init(uint baudrate, uint databits, uint stopbits, uart_parity_t parity)
 {
