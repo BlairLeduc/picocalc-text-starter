@@ -46,7 +46,6 @@ static void on_uart_rx()
         uint16_t next_head = (rx_head + 1) & (UART_BUFFER_SIZE - 1);
         rx_buffer[rx_head] = ch;
         rx_head = next_head;
-        //serial_chars_available_notify();
     }
 }
 
