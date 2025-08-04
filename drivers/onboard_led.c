@@ -22,12 +22,10 @@ void led_set(bool led)
 int led_init()
 {
     if (led_initialised) {
-        return 0; // Already initialized, return success
+        return PICO_OK; // Already initialized, return success
     }
 
-    status_led_init();
+    led_initialised = status_led_init(); // Set the initialized flag
 
-    led_initialised = true; // Set the initialized flag
-
-    return 0; // Success
+    return led_initialised ? PICO_OK : PICO_ERROR_GENERIC;
 }
