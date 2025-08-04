@@ -15,15 +15,15 @@ if(WIN32)
 else()
     set(USERHOME $ENV{HOME})
 endif()
-set(sdkVersion 2.1.1)
+set(sdkVersion 2.2.0)
 set(toolchainVersion 14_2_Rel1)
-set(picotoolVersion 2.1.1)
+set(picotoolVersion 2.2.0)
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
 if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
-set(PICO_BOARD pico CACHE STRING "Board type")
+set(PICO_BOARD pico2_w CACHE STRING "Board type")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
@@ -96,21 +96,13 @@ target_link_libraries(picocalc-text-starter
         pico_stdlib
         pico_printf
         pico_float
+        pico_status_led
         hardware_gpio
         hardware_i2c
         hardware_spi
         hardware_pio
         hardware_clocks
         )
-
-# Add wireless library only for boards that support it
-if(PICO_BOARD STREQUAL "pico_w" 
-        OR PICO_BOARD STREQUAL "pico2_w"
-        OR PICO_BOARD STREQUAL "pimoroni_pico_plus2_w_rp2350")
-    target_link_libraries(picocalc-text-starter
-            pico_cyw43_arch_none
-            )
-endif()
 
 pico_add_extra_outputs(picocalc-text-starter)
 

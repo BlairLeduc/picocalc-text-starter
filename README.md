@@ -13,7 +13,6 @@ This starter includes drivers for:
 - Audio (one voice per left/right channel)
 - Display (multicolour text with ANSI escape code emulation)
 - Keyboard
-- Pico onboard LED (WiFi-option aware)
 - Serial port
 - SD Card (FAT32 file system only)
 - Southbridge functions (keyboard, battery, backlights)
@@ -54,6 +53,8 @@ If you are using [Visual Studio Code](https://code.visualstudio.com) and the [Ra
 
 > [!TIP]
 > Make sure you update `CMakeLists.txt` to set the board to the Pico you are using (PICO_BOARD) and update the WiFi board list at the end of the file if you are using a third-party board. 
+
+**Always use the latest Pico SDK**. This starter is designed to work with the latest Pico SDK. If you are using an older version, you may need to update your SDK or modify the code to work with the older version.
 
 
 # Standard C Library
@@ -180,7 +181,6 @@ Documentation for the low-level drivers. These drivers talk directly to the hard
 
 - [Audio](docs/audio.md) – simple audio driver can play stereo notes
 - [LCD](docs/lcd.md) – driver for the LCD display that is optimised for displaying text
-- [On-board LED](docs/onboard_led.md) – controls the on-board LED
 - [SD Card](docs/sdcard.md) – driver that allows file systems to talk to the SD card
 - [Serial](docs/serial.md) – driver for the USB C serial port
 - [Southbridge](docs/southbridge.md) – interfaces to the low-speed devices (keyboard, backlight, battery)
