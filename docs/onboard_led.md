@@ -3,7 +3,7 @@
 > [!caution]
 > **This driver is deprecated.**
 >
-> Pico SDK 2.2.0 and later renders this driver obsolite. Use the `pico_status_led` library instead.
+> Pico SDK 2.2.0 and later renders this driver obsolete. Use the `pico_status_led` library instead.
 >
 > At some point in the future this driver will be removed.
 
