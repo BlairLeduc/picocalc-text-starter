@@ -110,6 +110,7 @@ void lcd_scroll_down(void);
 
 // Character and cursor functions
 void lcd_putc(uint8_t column, uint8_t row, uint8_t c);
+void lcd_putstr(uint8_t column, uint8_t row, const char *str);
 void lcd_move_cursor(uint8_t x, uint8_t y);
 void lcd_draw_cursor(void);
 void lcd_erase_cursor(void);

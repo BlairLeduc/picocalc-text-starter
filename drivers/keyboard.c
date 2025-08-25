@@ -21,6 +21,7 @@
 #include "southbridge.h"
 
 extern volatile bool user_interrupt;
+extern volatile bool power_off_requested;
 keyboard_key_available_callback_t keyboard_key_available_callback = NULL;
 
 // Modifier key states
@@ -73,6 +74,10 @@ static bool on_keyboard_timer(repeating_timer_t *rt)
                 else if (key_code == KEY_BREAK)
                 {
                     user_interrupt = true; // set user interrupt flag
+                }
+                else if (key_code == KEY_POWER)
+                {
+                    power_off_requested = true; // set power off requested flag
                 }
                 else
                 {

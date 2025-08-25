@@ -9,6 +9,8 @@
 
 #include "commands.h"
 
+bool power_off_requested = false;
+
 void set_onboard_led(uint8_t led)
 {
     led_set(led & 0x01);
@@ -88,6 +90,7 @@ int main()
         
         run_command(buffer); // Call the command handler
 
-        printf("\033[q\nReady.\n"); // Turn off the LED and prompt for input again
+        printf("\033[q\nReady. %s\n", power_off_requested ? "(power off requested)" : ""); // Turn off the LED and prompt for input again
+        power_off_requested = false;
     }
 }

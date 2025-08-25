@@ -197,6 +197,19 @@ Draws a glyph at a location on the display.
 - c – glygh to draw (font offset)
 
 
+## lcd_putstr
+
+`void lcd_putstr(uint8_t column, uint8_t row, const char *s)`
+
+Draws a string of glyphs at a location on the display.
+
+### Parameters
+
+- column - horizontal location to draw
+- row – vertical location to draw
+- s – a pointer to the string of glyphs to draw (font offsets)
+
+
 ## lcd_move_cursor
 
 `void lcd_move_cursor(uint8_t column, uint8_t row)`

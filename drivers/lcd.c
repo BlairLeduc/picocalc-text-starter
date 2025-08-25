@@ -37,6 +37,7 @@ static bool bold = false;       // bold text state
 // Text drawing
 const font_t *font = &font_8x10; // default font is 8x10
 static uint16_t char_buffer[8 * GLYPH_HEIGHT] __attribute__((aligned(4)));
+static uint16_t line_buffer[WIDTH * GLYPH_HEIGHT] __attribute__((aligned(4)));
 
 // Background processing
 static semaphore_t lcd_sem;
@@ -457,6 +458,81 @@ void lcd_putc(uint8_t column, uint8_t row, uint8_t c)
 
     lcd_blit(char_buffer, column * font->width, row * GLYPH_HEIGHT, font->width, GLYPH_HEIGHT);
 }
+
+// Draw a string at the specified position
+void lcd_putstr(uint8_t column, uint8_t row, const char *str)
+{
+    int len = strlen(str);
+    int pos = 0;
+    while (*str)
+    {
+        uint16_t *buffer = line_buffer + (pos++ * font->width);
+        const uint8_t *glyph = &font->glyphs[*str++ * GLYPH_HEIGHT];
+
+        if (font->width == 8)
+        {
+            for (uint8_t i = 0; i < GLYPH_HEIGHT; i++, glyph++)
+            {
+                if (i < GLYPH_HEIGHT - 1)
+                {
+                    // Fill the row with the glyph data
+                    *(buffer++) = (*glyph & 0x80) ? foreground : background;
+                    *(buffer++) = (*glyph & 0x40) || (bold && (*glyph & 0x80)) ? foreground : background;
+                    *(buffer++) = (*glyph & 0x20) || (bold && (*glyph & 0x40)) ? foreground : background;
+                    *(buffer++) = (*glyph & 0x10) || (bold && (*glyph & 0x20)) ? foreground : background;
+                    *(buffer++) = (*glyph & 0x08) || (bold && (*glyph & 0x10)) ? foreground : background;
+                    *(buffer++) = (*glyph & 0x04) || (bold && (*glyph & 0x08)) ? foreground : background;
+                    *(buffer++) = (*glyph & 0x02) || (bold && (*glyph & 0x04)) ? foreground : background;
+                    *(buffer++) = (*glyph & 0x01) || (bold && (*glyph & 0x02)) ? foreground : background;
+                }
+                else
+                {
+                    // The last row is where the underscore is drawn, but if no underscore is set, fill with glyph data
+                    *(buffer++) = (*glyph & 0x80) || underscore ? foreground : background;
+                    *(buffer++) = (*glyph & 0x40) || underscore ? foreground : background;
+                    *(buffer++) = (*glyph & 0x20) || underscore ? foreground : background;
+                    *(buffer++) = (*glyph & 0x10) || underscore ? foreground : background;
+                    *(buffer++) = (*glyph & 0x08) || underscore ? foreground : background;
+                    *(buffer++) = (*glyph & 0x04) || underscore ? foreground : background;
+                    *(buffer++) = (*glyph & 0x02) || underscore ? foreground : background;
+                    *(buffer++) = (*glyph & 0x01) || underscore ? foreground : background;
+                }
+                buffer += (len - 1) * font->width;
+            }
+        }
+        else
+        {
+            for (uint8_t i = 0; i < GLYPH_HEIGHT; i++, glyph++)
+            {
+                if (i < GLYPH_HEIGHT - 1)
+                {
+                    // Fill the row with the glyph data
+                    *(buffer++) = (*glyph & 0x10) ? foreground : background;
+                    *(buffer++) = (*glyph & 0x08) ? foreground : background;
+                    *(buffer++) = (*glyph & 0x04) ? foreground : background;
+                    *(buffer++) = (*glyph & 0x02) ? foreground : background;
+                    *(buffer++) = (*glyph & 0x01) ? foreground : background;
+                }
+                else
+                {
+                    // The last row is where the underscore is drawn, but if no underscore is set, fill with glyph data
+                    *(buffer++) = (*glyph & 0x10) || underscore ? foreground : background;
+                    *(buffer++) = (*glyph & 0x08) || underscore ? foreground : background;
+                    *(buffer++) = (*glyph & 0x04) || underscore ? foreground : background;
+                    *(buffer++) = (*glyph & 0x02) || underscore ? foreground : background;
+                    *(buffer++) = (*glyph & 0x01) || underscore ? foreground : background;
+                }
+                buffer += (len - 1) * font->width;
+            }
+        }
+    }
+
+    if (len)
+    {
+        lcd_blit(line_buffer, column * font->width, row * GLYPH_HEIGHT, font->width * len, GLYPH_HEIGHT);
+    }
+}
+
 
 //
 // The cursor

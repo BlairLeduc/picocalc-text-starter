@@ -69,7 +69,7 @@ add_executable(picocalc-text-starter
         )
 
 pico_set_program_name(picocalc-text-starter "picocalc-text-starter")
-pico_set_program_version(picocalc-text-starter "0.9")
+pico_set_program_version(picocalc-text-starter "0.10")
 
 
 # Generate PIO header
@@ -97,6 +97,7 @@ target_link_libraries(picocalc-text-starter
         pico_printf
         pico_float
         pico_status_led
+        pico_rand
         hardware_gpio
         hardware_i2c
         hardware_spi

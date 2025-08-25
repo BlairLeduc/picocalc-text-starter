@@ -39,6 +39,7 @@ static const command_t commands[] = {
     {"more", sd_more, "Page through a file"},
     {"play", play, "Play a song"},
     {"pwd", sd_pwd, "Print working directory"},
+    {"reset", reset, "Reset the device"},
     {"rm", sd_rm, "Remove a file"},
     {"rmdir", sd_rmdir, "Remove a directory"},
     {"sdcard", sd_status, "Show SD card status"},
@@ -441,6 +442,13 @@ void width_set(const char *width)
 
     printf("Terminal width set to %s characters.\n", width);
 }
+
+void reset()
+{
+    printf("Resetting the device in one second...\n");
+    sb_reset(1);
+}
+
 //
 // SD Card Commands
 //

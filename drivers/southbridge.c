@@ -63,6 +63,19 @@ uint16_t sb_read_keyboard()
     return buffer[0] << 8 | buffer[1];
 }
 
+uint16_t sb_read_keyboard_state()
+{
+    uint8_t buffer[2];
+
+    sb_acquire();                    // acquire the south bridge semaphore
+    buffer[0] = SB_REG_KEY;         // command to read key state
+    sb_write(buffer, 1);
+    sb_read(buffer, 2);
+    sb_release();                   // release the south bridge semaphore
+
+    return buffer[0];
+}
+
 // Read the battery level from the southbridge
 uint8_t sb_read_battery() {
     uint8_t buffer[2];
@@ -74,26 +87,6 @@ uint8_t sb_read_battery() {
     sb_release();
 
     return buffer[1];
-}
-
-// Initialize the southbridge
-void sb_init()
-{
-    if (sb_initialised) {
-        return; // already initialized
-    }
-
-    i2c_init(SB_I2C, SB_BAUDRATE);
-    gpio_set_function(SB_SCL, GPIO_FUNC_I2C);
-    gpio_set_function(SB_SDA, GPIO_FUNC_I2C);
-    gpio_pull_up(SB_SCL);
-    gpio_pull_up(SB_SDA);
-
-    // initialize semaphore for I2C access
-    sem_init(&sb_sem, 1, 1);
-
-    // Set the initialised flag
-    sb_initialised = true;
 }
 
 // Read the LCD backlight level
@@ -146,4 +139,59 @@ void sb_write_keyboard_backlight(uint8_t brightness)
     buffer[1] = brightness;
     sb_write(buffer, 2);
     sb_release();
+}
+
+bool sb_is_power_off_supported()
+{
+    uint8_t buffer[2];
+
+    sb_acquire();
+    buffer[0] = SB_REG_OFF;
+    sb_write(buffer, 1);
+    sb_read(buffer, 2);
+    sb_release();
+
+    return buffer[1] > 0;
+}
+
+void sb_write_power_off_delay(uint8_t delay_seconds)
+{
+    uint8_t buffer[2];
+
+    sb_acquire();
+    buffer[0] = SB_REG_OFF;
+    buffer[1] = delay_seconds;
+    sb_write(buffer, 2);
+    sb_release();
+}
+
+void sb_reset(uint8_t delay_seconds)
+{
+    uint8_t buffer[2];
+
+    sb_acquire();
+    buffer[0] = SB_REG_RST;
+    buffer[1] = delay_seconds;
+    sb_write(buffer, 2);
+    sb_release();
+}
+
+// Initialize the southbridge
+void sb_init()
+{
+    if (sb_initialised) {
+        return; // already initialized
+    }
+
+    i2c_init(SB_I2C, SB_BAUDRATE);
+    gpio_set_function(SB_SCL, GPIO_FUNC_I2C);
+    gpio_set_function(SB_SDA, GPIO_FUNC_I2C);
+    gpio_pull_up(SB_SCL);
+    gpio_pull_up(SB_SDA);
+
+    // initialize semaphore for I2C access
+    sem_init(&sb_sem, 1, 1);
+
+    // Set the initialised flag
+    sb_initialised = true;
 }

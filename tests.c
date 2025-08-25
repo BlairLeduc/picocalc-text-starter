@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "pico/rand.h"
 #include "drivers/audio.h"
 #include "drivers/fat32.h"
 #include "drivers/lcd.h"
@@ -418,6 +419,25 @@ void displaytest()
     printf("Average characters per second: %.0f\n", chars_per_second);
     printf("Characters displayed: %d\n", chars);
     printf("Average displayed cps: %.0f\n", displayed_per_second);
+}
+
+void lcdtest()
+{
+    printf("\033[2J\033[HRunning LCD driver test...\n");
+    char *hi = "Hello!";
+
+    for(int i=0; i < 100; i++)
+    {
+        if (user_interrupt)
+        {
+            printf("\nUser interrupt detected.\nStopping LCD test.\n");
+            return;
+        }
+        int column = get_rand_32() % (columns - 6);
+        int row = get_rand_32() % 32;
+        lcd_putstr(column, row, hi);
+        sleep_ms(100);
+    }
 }
 
 void keyboardtest()
@@ -1218,8 +1238,9 @@ void fat32test()
 const test_t tests[] = {
     {"audio", audiotest, "Audio Driver Test"},
     {"display", displaytest, "Display Driver Test"},
-    {"keyboard", keyboardtest, "Keyboard Driver Test"},
     {"fat32", fat32test, "FAT32 File System Test"},
+    {"keyboard", keyboardtest, "Keyboard Driver Test"},
+    {"lcd", lcdtest, "LCD Driver Test"},
     {NULL, NULL, NULL} // End marker
 };
 
