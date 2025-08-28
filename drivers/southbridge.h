@@ -28,6 +28,8 @@
 #define SB_REG_BAT         (0x0B)      // *battery
 #define SB_REG_OFF         (0x0E)      // *power off
 
+#define SB_WRITE           (0x80)      // write to register
+
 // Function prototypes
 bool sb_available();
 void sb_acquire();
@@ -40,9 +42,9 @@ uint16_t sb_read_keyboard(void);
 uint16_t sb_read_keyboard_state(void);
 uint8_t sb_read_battery(void);
 uint8_t sb_read_lcd_backlight(void);
-void sb_write_lcd_backlight(uint8_t brightness);
+uint8_t sb_write_lcd_backlight(uint8_t brightness);
 uint8_t sb_read_keyboard_backlight(void);
-void sb_write_keyboard_backlight(uint8_t brightness);
+uint8_t sb_write_keyboard_backlight(uint8_t brightness);
 bool sb_is_power_off_supported(void);
 void sb_write_power_off_delay(uint8_t delay_seconds);
 void sb_reset(uint8_t delay_seconds);

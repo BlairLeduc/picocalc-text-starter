@@ -29,9 +29,9 @@ Read the current LCD Display backlight brightness, 0 (dark) to 255 (bright).
 
 ## sb_write_lcd_backlight
 
-`void sb_write_lcd_backlight(uint8_t brightness)`
+`uint8_t sb_write_lcd_backlight(uint8_t brightness)`
 
-Sets the LCD Display backlight brightness.
+Sets the LCD Display backlight brightness and returns the value that the southbridge reports.
 
 ### Parameters
 
@@ -47,9 +47,9 @@ Reads the current keyboard backlight brightness, 0 (dark) to 255 (bright).
 
 ## sb_write_keyboard_backlight
 
-`void sb_write_keyboard_backlight(uint8_t brightness)`
+`uint8_t sb_write_keyboard_backlight(uint8_t brightness)`
 
-Sets the keyboard backlight brightness.
+Sets the keyboard backlight brightness and returns the value that the southbridge reports.
 
 ### Parameters
 
@@ -60,18 +60,18 @@ Sets the keyboard backlight brightness.
 
 `bool sb_is_power_off_supported(void)`
 
-Returns true if power off is supported, false otherwise.
+Returns true if power off is supported, false otherwise. This function will return true if BIOS 1.4 is present.
 
 
 ## sb_write_power_off_delay
 
 `void sb_write_power_off_delay(uint8_t delay_seconds)`
 
-Sets a power off delay with the power management unit. Not sure what this does.
+Powers off the PicoCalc after the specified delay. Requires BIOS 1.4.
 
 
 ## sb_reset
 
 `void sb_reset(uint8_t delay_seconds)`
 
-Reset the PicoCalc after a delay.
+Reset the PicoCalc after a delay. Requires BIOS 1.4.

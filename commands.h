@@ -11,6 +11,7 @@ extern uint8_t columns; // Global variable for terminal width
 
 // Forward declarations
 void backlight(void);
+void backlight_set(const char *display_level, const char *keyboard_level);
 void battery(void);
 void beep(void);
 void box(void);
@@ -24,7 +25,10 @@ void show_command_library(void);
 void test(void);
 void width(void);
 void width_set(const char *width_str);
+void power_off(void);
+void power_off_set(const char *seconds);
 void reset();
+void reset_set(const char *seconds);
 
 // SD card commands
 void sd_pwd(void);

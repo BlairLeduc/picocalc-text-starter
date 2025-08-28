@@ -15,7 +15,7 @@ This starter includes drivers for:
 - Keyboard
 - Serial port
 - SD Card (FAT32 file system only)
-- Southbridge functions (keyboard, battery, backlights)
+- Southbridge functions (keyboard, battery, backlights, power)
 
 See below for more information on integration with the C standard library and the REPL provided to demonstrate the drivers.
 
@@ -116,7 +116,7 @@ The main entry point for this starter is a simple REPL to run demos and tests of
 
 These commands provide examples of how to use the drivers:
 
-- **backlight** - Displays the backlight values for the display and keyboard
+- **backlight** - Displays or sets the backlight values for the display and keyboard
 - **battery** – Displays the battery level and status (graphically)
 - **beep** – Play a simple beep sound
 - **box** – Draws a yellow box using special graphics characters
@@ -130,7 +130,9 @@ These commands provide examples of how to use the drivers:
 - **mv** – Move a file or directory
 - **more** – Display the contents of a file
 - **play** – Play a named song (use 'songs' for a list of available songs)
+- **poweroff** – Powers off the device after a delay (requires BIOS 1.4)
 - **pwd** – Displays the current directory
+- **reset** – Resets the device after a delay (requires BIOS 1.4)
 - **rm** – Remove a file
 - **rmdir** – Remove a directory
 - **sdcard** – Provides information about the inserted SD card
@@ -162,6 +164,7 @@ Tests to make sure the hardware and drivers are working correctly.
 - **audio** – Test the audio driver with different notes, distinct left/right separation, melodies bouncing between channels, and harmonious intervals. 
 - **display** – Display driver stress test with scrolling lines of different colours, writing ANSI escape codes and characters as quickly as possible. Note: characters processed includes the processing of escape squences where characters displayed are the number of characters drawn on the display.
 - **keyboard** – Test the keyboard driver by pressing keys and displaying the key codes. Press 'Brk' to exit the test.
+- **lcd** – Basic test of the LCD driver.
 - **fat32** – Test the FAT32 driver with different file operations (create, read, write, delete) and verify the integrity of the file system.
 
 

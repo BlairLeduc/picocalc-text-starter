@@ -104,15 +104,18 @@ uint8_t sb_read_lcd_backlight()
 }
 
 // Write the LCD backlight level
-void sb_write_lcd_backlight(uint8_t brightness)
+uint8_t sb_write_lcd_backlight(uint8_t brightness)
 {
     uint8_t buffer[2];
 
     sb_acquire();
-    buffer[0] = SB_REG_BKL;
+    buffer[0] = SB_REG_BKL | SB_WRITE;
     buffer[1] = brightness;
     sb_write(buffer, 2);
+    sb_read(buffer, 2);
     sb_release();
+
+    return buffer[1];
 }
 
 // Read the keyboard backlight level
@@ -130,15 +133,18 @@ uint8_t sb_read_keyboard_backlight()
 }
 
 // Write the keyboard backlight level
-void sb_write_keyboard_backlight(uint8_t brightness)
+uint8_t sb_write_keyboard_backlight(uint8_t brightness)
 {
     uint8_t buffer[2];
 
     sb_acquire();
-    buffer[0] = SB_REG_BK2;
+    buffer[0] = SB_REG_BK2 | SB_WRITE;
     buffer[1] = brightness;
     sb_write(buffer, 2);
+    sb_read(buffer, 2);
     sb_release();
+
+    return buffer[1];
 }
 
 bool sb_is_power_off_supported()
@@ -159,7 +165,7 @@ void sb_write_power_off_delay(uint8_t delay_seconds)
     uint8_t buffer[2];
 
     sb_acquire();
-    buffer[0] = SB_REG_OFF;
+    buffer[0] = SB_REG_OFF | SB_WRITE;
     buffer[1] = delay_seconds;
     sb_write(buffer, 2);
     sb_release();
@@ -170,9 +176,10 @@ void sb_reset(uint8_t delay_seconds)
     uint8_t buffer[2];
 
     sb_acquire();
-    buffer[0] = SB_REG_RST;
+    buffer[0] = SB_REG_RST | SB_WRITE;
     buffer[1] = delay_seconds;
     sb_write(buffer, 2);
+    sb_read(buffer, 2); // read back to ensure command is sent
     sb_release();
 }
 

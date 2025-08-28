@@ -24,7 +24,7 @@ uint8_t columns = 40;
 
 // Command table - map of command names to functions
 static const command_t commands[] = {
-    {"backlight", backlight, "Show the backlight levels"},
+    {"backlight", backlight, "Show/set the backlight"},
     {"battery", battery, "Show the battery level"},
     {"beep", beep, "Play a simple beep sound"},
     {"box", box, "Draw a box on the screen"},
@@ -38,6 +38,7 @@ static const command_t commands[] = {
     {"mv", sd_mv, "Move or rename a file/directory"},
     {"more", sd_more, "Page through a file"},
     {"play", play, "Play a song"},
+    {"poweroff", power_off, "Power off the device"},
     {"pwd", sd_pwd, "Print working directory"},
     {"reset", reset, "Reset the device"},
     {"rm", sd_rm, "Remove a file"},
@@ -50,7 +51,6 @@ static const command_t commands[] = {
     {"help", show_command_library, "Show this help message"},
     {NULL, NULL, NULL} // Sentinel to mark end of array
 };
-
 
 char *strechr(const char *s, int c)
 {
@@ -86,7 +86,7 @@ char *condense(char *s)
             *dst++ = *src++;
         }
         else
-        { 
+        {
             src++;
             if (*src == '\0')
             {
@@ -244,6 +244,18 @@ void run_command(const char *command)
             {
                 width_set(condense(cmd_args[1]));
             }
+            else if (strcmp(cmd_args[0], "poweroff") == 0 && cmd_args[1] != NULL)
+            {
+                power_off_set(condense(cmd_args[1]));
+            }
+            else if (strcmp(cmd_args[0], "reset") == 0 && cmd_args[1] != NULL)
+            {
+                reset_set(condense(cmd_args[1]));
+            }
+            else if (strcmp(cmd_args[0], "backlight") == 0 && cmd_args[1] != NULL && cmd_args[2] != NULL)
+            {
+                backlight_set(condense(cmd_args[1]), condense(cmd_args[2]));
+            }
             else
             {
                 commands[i].function(); // Call the command function
@@ -277,6 +289,27 @@ void backlight()
 
     printf("LCD BackLight: %.0f%%\n", lcd_backlight / 2.55);           // Convert to percentage
     printf("Keyboard BackLight: %.0f%%\n", keyboard_backlight / 2.55); // Convert to percentage
+}
+
+void backlight_set(const char *display_level, const char *keyboard_level)
+{
+    int lcd_level = atoi(display_level);
+    int key_level = atoi(keyboard_level);
+
+    if (lcd_level < 0 || lcd_level > 100 || key_level < 0 || key_level > 100)
+    {
+        printf("Error: Invalid backlight level. Please enter values between 0 and 100.\n");
+        return;
+    }
+
+    uint8_t lcd_backlight = (uint8_t)(lcd_level * 2.55);
+    uint8_t keyboard_backlight = (uint8_t)(key_level * 2.55);
+
+    uint8_t lcd_result = sb_write_lcd_backlight(lcd_backlight);
+    uint8_t keyboard_result = sb_write_keyboard_backlight(keyboard_backlight);
+
+    printf("LCD BackLight set to: %d, claims %d\n", lcd_backlight, lcd_result);
+    printf("Keyboard BackLight set to: %d, claims %d\n", keyboard_backlight, keyboard_result);
 }
 
 void battery()
@@ -443,10 +476,45 @@ void width_set(const char *width)
     printf("Terminal width set to %s characters.\n", width);
 }
 
+void power_off(void)
+{
+    printf("Error: No delay specified.\n");
+    printf("Usage: poweroff <seconds>\n");
+    printf("Example: poweroff 10\n");
+    printf("Set the poweroff delay.\n");
+}
+
+void power_off_set(const char *seconds)
+{
+    if (sb_is_power_off_supported())
+    {
+        int delay = atoi(seconds);
+        printf("Poweroff delay set to %d seconds.\n", delay);
+        sb_write_power_off_delay(delay);
+    }
+    else
+    {
+        printf("Poweroff not supported on this device.\n");
+    }
+}
+
 void reset()
 {
     printf("Resetting the device in one second...\n");
     sb_reset(1);
+}
+
+void reset_set(const char *seconds)
+{
+    int delay = atoi(seconds);
+    if (delay < 0 || delay > 255)
+    {
+        printf("Error: Invalid delay '%s'.\n", seconds);
+        printf("Delay must be between 0 and 255 seconds.\n");
+        return;
+    }
+    printf("Resetting the device in %d seconds...\n", delay);
+    sb_reset((uint8_t)delay);
 }
 
 //
