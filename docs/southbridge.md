@@ -63,6 +63,7 @@ Sets the keyboard backlight brightness and returns the value that the southbridg
 Returns true if power off is supported, false otherwise. This function will return true if BIOS 1.4 is present.
 
 
+
 ## sb_write_power_off_delay
 
 `void sb_write_power_off_delay(uint8_t delay_seconds)`

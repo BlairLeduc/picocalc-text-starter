@@ -517,6 +517,7 @@ void reset_set(const char *seconds)
     sb_reset((uint8_t)delay);
 }
 
+
 //
 // SD Card Commands
 //
