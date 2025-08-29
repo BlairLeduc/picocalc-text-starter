@@ -1,5 +1,7 @@
 #pragma once
 
+#define PERCENT_TO_BYTE_SCALE (2.55f)
+
 // Command structure for function pointer table
 typedef struct {
     const char* name;

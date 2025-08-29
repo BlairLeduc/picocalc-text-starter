@@ -287,8 +287,8 @@ void backlight()
     uint8_t lcd_backlight = sb_read_lcd_backlight();
     uint8_t keyboard_backlight = sb_read_keyboard_backlight();
 
-    printf("LCD BackLight: %.0f%%\n", lcd_backlight / 2.55);           // Convert to percentage
-    printf("Keyboard BackLight: %.0f%%\n", keyboard_backlight / 2.55); // Convert to percentage
+    printf("LCD BackLight: %.0f%%\n", lcd_backlight / PERCENT_TO_BYTE_SCALE);           // Convert to percentage
+    printf("Keyboard BackLight: %.0f%%\n", keyboard_backlight / PERCENT_TO_BYTE_SCALE); // Convert to percentage
 }
 
 void backlight_set(const char *display_level, const char *keyboard_level)
@@ -302,8 +302,8 @@ void backlight_set(const char *display_level, const char *keyboard_level)
         return;
     }
 
-    uint8_t lcd_backlight = (uint8_t)(lcd_level * 2.55);
-    uint8_t keyboard_backlight = (uint8_t)(key_level * 2.55);
+    uint8_t lcd_backlight = (uint8_t)(lcd_level * PERCENT_TO_BYTE_SCALE);
+    uint8_t keyboard_backlight = (uint8_t)(key_level * PERCENT_TO_BYTE_SCALE);
 
     uint8_t lcd_result = sb_write_lcd_backlight(lcd_backlight);
     uint8_t keyboard_result = sb_write_keyboard_backlight(keyboard_backlight);
