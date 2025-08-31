@@ -13,11 +13,12 @@
 //        writing to the display RAM requires the minimum chip select high pulse width of 40ns.
 //
 
+#include <stdio.h>
+#include <string.h>
+
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
 #include "hardware/spi.h"
-
-#include "string.h"
 
 #include "lcd.h"
 #include "display.h"
@@ -115,6 +116,7 @@ uint8_t active_charset = 0;         // currently active character set (0=G0, 1=G
 
 void (*display_led_callback)(uint8_t) = NULL;
 void (*display_bell_callback)(void) = NULL;
+void (*display_report_callback)(const char *) = NULL;
 
 static void set_g0_charset(uint8_t charset)
 {
@@ -152,6 +154,14 @@ static void ring_bell()
     if (display_bell_callback)
     {
         display_bell_callback(); // Call the user-defined bell callback
+    }
+}
+
+static void report(const char *msg)
+{
+    if (display_report_callback)
+    {
+        display_report_callback(msg);
     }
 }
 
@@ -278,7 +288,47 @@ void display_emit(char ch)
                 column = MAX(0, column - parameters[0]);
                 break;
             case 'J':               // ED – Erase In Display
-                lcd_clear_screen(); // Only support clearing the entire screen (2)
+                if (parameters[0] == 0)
+                {
+                    // Erase from cursor to end of screen
+                    lcd_erase_line(row, column, lcd_get_columns());
+                    for (uint8_t r = row + 1; r <= MAX_ROW; r++)
+                    {
+                        lcd_erase_line(r, 0, lcd_get_columns());
+                    }
+                }
+                else if (parameters[0] == 1)
+                {
+                    // Erase from start of screen to cursor
+                    for (uint8_t r = 0; r < row; r++)
+                    {
+                        lcd_erase_line(r, 0, lcd_get_columns());
+                    }
+                    lcd_erase_line(row, 0, column);
+                }
+                else if (parameters[0] == 2) // clear entire screen
+                {
+                    lcd_clear_screen();
+                }
+                break;
+            case 'K':               // EL – Erase In Line
+                if (parameters[0] == 0)
+                {
+                    // Erase from cursor to end of line
+                    lcd_erase_line(row, column, lcd_get_columns());
+                }
+                else if (parameters[0] == 1)
+                {
+                    // Erase from start of line to cursor
+                    lcd_erase_line(row, 0, column);
+                }
+                else if (parameters[0] == 2) // clear entire line
+                {
+                    lcd_erase_line(row, 0, lcd_get_columns());
+                }
+                break;
+            case 'c': // DA - Device Attributes
+                report("\033[?1;c");
                 break;
             case 'm': // SGR – Select Graphic Rendition
                 for (uint8_t i = 0; i <= p_index; i++)
@@ -384,6 +434,18 @@ void display_emit(char ch)
                             lcd_set_background(bright_palette[index]);
                         }
                     }
+                }
+                break;
+            case 'n': // Device Status Report
+                if (parameters[0] == 5) // DSR - Device Status Report
+                {
+                    report("\033[0n");
+                }
+                else if (parameters[0] == 6) // DSR - Device Status Report
+                {
+                    char buf[9];
+                    snprintf(buf, sizeof(buf), "\033[%d;%dR", row + 1, column + 1);
+                    report(buf);
                 }
                 break;
             case 'f': // HVP – Horizontal and Vertical Position
@@ -507,7 +569,7 @@ void display_emit(char ch)
             ring_bell(); // ring the bell
             break;
         case CHR_HT:
-            column += MIN(((column + 4) & ~3), lcd_get_columns() - 1); // move cursor forward by 1 tabstop (but not beyond the end of the line)
+            column += MIN(((column + 8) & ~7), lcd_get_columns() - 1); // move cursor forward by 1 tabstop (but not beyond the end of the line)
             break;
         case CHR_LF:
         case CHR_VT:
@@ -567,6 +629,21 @@ void display_emit(char ch)
     // Update cursor position
     lcd_move_cursor(column, row);
     lcd_draw_cursor(); // draw the cursor at the new position
+}
+
+void display_set_led_callback(led_callback_t callback)
+{
+    display_led_callback = callback;
+}
+
+void display_set_bell_callback(bell_callback_t callback)
+{
+    display_bell_callback = callback;
+}
+
+void display_set_report_callback(report_callback_t callback)
+{
+    display_report_callback = callback;
 }
 
 //

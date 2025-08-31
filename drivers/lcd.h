@@ -119,5 +119,6 @@ bool lcd_cursor_enabled(void);
 
 // Initialization
 void lcd_clear_screen(void);
+void lcd_erase_line(uint8_t row, uint8_t col_start, uint8_t col_end);
 void lcd_init(void);
 

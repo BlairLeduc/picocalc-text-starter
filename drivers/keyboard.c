@@ -79,6 +79,10 @@ static bool on_keyboard_timer(repeating_timer_t *rt)
                 {
                     power_off_requested = true; // set power off requested flag
                 }
+                else if (key_code == KEY_CAPS_LOCK)
+                {
+                    // do nothing, processed in the south bridge
+                }
                 else
                 {
                     // If a key is released, we return the key code

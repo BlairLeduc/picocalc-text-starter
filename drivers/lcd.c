@@ -395,6 +395,11 @@ void lcd_clear_screen()
     lcd_solid_rectangle(background, 0, 0, WIDTH, FRAME_HEIGHT);
 }
 
+void lcd_erase_line(uint8_t row, uint8_t col_start, uint8_t col_end)
+{
+    lcd_solid_rectangle(background, col_start * font->width, row * GLYPH_HEIGHT, (col_end - col_start) * font->width, GLYPH_HEIGHT);
+}
+
 // Draw a character at the specified position
 void lcd_putc(uint8_t column, uint8_t row, uint8_t c)
 {

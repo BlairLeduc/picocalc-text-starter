@@ -50,7 +50,13 @@ typedef void (*led_callback_t)(uint8_t);
 // Notify then the bell character is received
 typedef void (*bell_callback_t)(void);
 
+// Notify when a terminal report is requested
+typedef void (*report_callback_t)(const char *);
+
 // Function prototypes
 void display_init(led_callback_t led_callback, bell_callback_t bell_callback);
+void display_set_led_callback(led_callback_t callback);
+void display_set_bell_callback(bell_callback_t callback);
+void display_set_report_callback(report_callback_t callback);
 bool display_emit_available(void);
 void display_emit(char c);
