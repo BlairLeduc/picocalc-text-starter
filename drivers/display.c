@@ -569,7 +569,7 @@ void display_emit(char ch)
             ring_bell(); // ring the bell
             break;
         case CHR_HT:
-            column += MIN(((column + 8) & ~7), lcd_get_columns() - 1); // move cursor forward by 1 tabstop (but not beyond the end of the line)
+            column = MIN(((column + 8) & ~7), lcd_get_columns() - 1); // move cursor to next tabstop (but not beyond the end of the line)
             break;
         case CHR_LF:
         case CHR_VT:
