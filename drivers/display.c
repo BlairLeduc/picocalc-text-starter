@@ -443,7 +443,7 @@ void display_emit(char ch)
                 }
                 else if (parameters[0] == 6) // DSR - Device Status Report
                 {
-                    char buf[9];
+                    char buf[16];
                     snprintf(buf, sizeof(buf), "\033[%d;%dR", row + 1, column + 1);
                     report(buf);
                 }
