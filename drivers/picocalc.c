@@ -61,11 +61,13 @@ stdio_driver_t picocalc_stdio_driver = {
     .next = NULL,
 };
 
-void picocalc_init(led_callback_t led_set_callback)
+void picocalc_init()
 {
     sb_init();
-    display_init(led_set_callback, NULL);
-    keyboard_init(picocalc_chars_available_notify);
+    display_init();
+    keyboard_init();
+    keyboard_set_key_available_callback(picocalc_chars_available_notify);
+    keyboard_set_background_poll(true);
     audio_init();
     fat32_init();
 

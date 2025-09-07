@@ -40,8 +40,20 @@ static uint16_t char_buffer[8 * GLYPH_HEIGHT] __attribute__((aligned(4)));
 static uint16_t line_buffer[WIDTH * GLYPH_HEIGHT] __attribute__((aligned(4)));
 
 // Background processing
-static semaphore_t lcd_sem;
+static uint32_t irq_state;
 static repeating_timer_t cursor_timer;
+
+static void lcd_disable_interrupts()
+{
+    irq_state = save_and_disable_interrupts();
+    //gpio_put(3, true);
+}
+
+static void lcd_enable_interrupts()
+{
+    //gpio_put(3, false);
+    restore_interrupts(irq_state);
+}
 
 //
 // Character attributes
@@ -113,29 +125,6 @@ void lcd_set_background(uint16_t colour)
     {
         background = colour;
     }
-}
-
-//
-// Protect the LCD access with a semaphore
-//
-
-// Check if the LCD is available for access
-bool lcd_available()
-{
-    // Check if the semaphore is available for LCD access
-    return sem_available(&lcd_sem);
-}
-
-// Protect the SPI bus with a semaphore
-void lcd_acquire()
-{
-    sem_acquire_blocking(&lcd_sem);
-}
-
-// Release the SPI bus
-void lcd_release()
-{
-    sem_release(&lcd_sem);
 }
 
 //
@@ -211,11 +200,8 @@ void lcd_write16_buf(const uint16_t *buffer, size_t len)
 //
 
 // Select the target of the pixel data in the display RAM that will follow
-void lcd_set_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
+static void lcd_set_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 {
-    // lcd_acquire() and lcd_release() are not needed here, as this function
-    // is only called from lcd_blit() which already acquires the semaphore
-
     // Set column address (X)
     lcd_write_cmd(LCD_CMD_CASET);
     lcd_write_data(4,
@@ -246,8 +232,7 @@ void lcd_set_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 
 void lcd_blit(uint16_t *pixels, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
 {
-    lcd_acquire();
-
+    lcd_disable_interrupts();
     if (y >= lcd_scroll_top && y < HEIGHT - lcd_scroll_bottom)
     {
         // Adjust y for vertical scroll offset and wrap within memory height
@@ -266,7 +251,7 @@ void lcd_blit(uint16_t *pixels, uint16_t x, uint16_t y, uint16_t width, uint16_t
     }
 
     lcd_write16_buf((uint16_t *)pixels, width * height);
-    lcd_release();
+    lcd_enable_interrupts();
 }
 
 // Draw a solid rectangle on the display
@@ -310,7 +295,7 @@ void lcd_define_scrolling(uint16_t top_fixed_area, uint16_t bottom_fixed_area)
     lcd_memory_scroll_height = FRAME_HEIGHT - (top_fixed_area + bottom_fixed_area);
     lcd_scroll_bottom = bottom_fixed_area;
 
-    lcd_acquire();
+    lcd_disable_interrupts();
     lcd_write_cmd(LCD_CMD_VSCRDEF);
     lcd_write_data(6,
                    UPPER8(lcd_scroll_top),
@@ -319,7 +304,7 @@ void lcd_define_scrolling(uint16_t top_fixed_area, uint16_t bottom_fixed_area)
                    LOWER8(scroll_area),
                    UPPER8(lcd_scroll_bottom),
                    LOWER8(lcd_scroll_bottom));
-    lcd_release();
+    lcd_enable_interrupts();
 
     lcd_scroll_reset(); // Reset the scroll area to the top
 }
@@ -330,10 +315,10 @@ void lcd_scroll_reset()
     lcd_y_offset = 0; // Reset the scroll offset
     uint16_t scroll_area_start = lcd_scroll_top + lcd_y_offset;
 
-    lcd_acquire();
+    lcd_disable_interrupts();
     lcd_write_cmd(LCD_CMD_VSCSAD); // Sets where in display RAM the scroll area starts
     lcd_write_data(2, UPPER8(scroll_area_start), LOWER8(scroll_area_start));
-    lcd_release();
+    lcd_enable_interrupts();
 }
 
 void lcd_scroll_clear()
@@ -355,10 +340,10 @@ void lcd_scroll_up()
     lcd_y_offset = (lcd_y_offset + GLYPH_HEIGHT) % lcd_memory_scroll_height;
     uint16_t scroll_area_start = lcd_scroll_top + lcd_y_offset;
 
-    lcd_acquire();
+    lcd_disable_interrupts();
     lcd_write_cmd(LCD_CMD_VSCSAD); // Sets where in display RAM the scroll area starts
     lcd_write_data(2, UPPER8(scroll_area_start), LOWER8(scroll_area_start));
-    lcd_release();
+    lcd_enable_interrupts();
 
     // Clear the new line at the bottom
     lcd_solid_rectangle(background, 0, HEIGHT - GLYPH_HEIGHT, WIDTH, GLYPH_HEIGHT);
@@ -375,10 +360,10 @@ void lcd_scroll_down()
     lcd_y_offset = (lcd_y_offset - GLYPH_HEIGHT + lcd_memory_scroll_height) % lcd_memory_scroll_height;
     uint16_t scroll_area_start = lcd_scroll_top + lcd_y_offset;
 
-    lcd_acquire();
+    lcd_disable_interrupts();
     lcd_write_cmd(LCD_CMD_VSCSAD); // Sets where in display RAM the scroll area starts
     lcd_write_data(2, UPPER8(scroll_area_start), LOWER8(scroll_area_start));
-    lcd_release();
+    lcd_enable_interrupts();
 
     // Clear the new line at the top
     lcd_solid_rectangle(background, 0, lcd_scroll_top, WIDTH, GLYPH_HEIGHT);
@@ -397,7 +382,7 @@ void lcd_clear_screen()
 
 void lcd_erase_line(uint8_t row, uint8_t col_start, uint8_t col_end)
 {
-    lcd_solid_rectangle(background, col_start * font->width, row * GLYPH_HEIGHT, (col_end - col_start) * font->width, GLYPH_HEIGHT);
+    lcd_solid_rectangle(background, col_start * font->width, row * GLYPH_HEIGHT, (col_end - col_start + 1) * font->width, GLYPH_HEIGHT);
 }
 
 // Draw a character at the specified position
@@ -621,17 +606,17 @@ void lcd_reset()
 // Turn on the LCD display
 void lcd_display_on()
 {
-    lcd_acquire();
+    lcd_disable_interrupts();
     lcd_write_cmd(LCD_CMD_DISPON);
-    lcd_release();
+    lcd_enable_interrupts();
 }
 
 // Turn off the LCD display
 void lcd_display_off()
 {
-    lcd_acquire();
+    lcd_disable_interrupts();
     lcd_write_cmd(LCD_CMD_DISPOFF);
-    lcd_release();
+    lcd_enable_interrupts();
 }
 
 //
@@ -645,7 +630,7 @@ bool on_cursor_timer(repeating_timer_t *rt)
 {
     static bool cursor_visible = false;
 
-    if (!lcd_available() || !lcd_cursor_enabled())
+    if (!lcd_cursor_enabled())
     {
         return true; // if the SPI bus is not available or cursor is disabled, do not toggle cursor
     }
@@ -694,6 +679,8 @@ void lcd_init()
     gpio_put(LCD_CSX, 1);
     gpio_put(LCD_RST, 1);
 
+    lcd_disable_interrupts();
+
     lcd_reset(); // reset the LCD controller
 
     lcd_write_cmd(LCD_CMD_SWRESET); // reset the commands and parameters to their S/W Reset default values
@@ -719,10 +706,9 @@ void lcd_init()
     );
 
     lcd_write_cmd(LCD_CMD_SLPOUT); // sleep out
-    sleep_ms(10);                  // required to wait at least 5ms
+    lcd_enable_interrupts();
 
-    // Prevent the blinking cursor from interfering with other operations
-    sem_init(&lcd_sem, 1, 1);
+    sleep_ms(10);                  // required to wait at least 5ms
 
     // Clear the screen
     lcd_clear_screen();
@@ -732,7 +718,7 @@ void lcd_init()
     lcd_display_on();
 
     // Blink the cursor every second (500 ms on, 500 ms off)
-    add_repeating_timer_ms(500, on_cursor_timer, NULL, &cursor_timer);
+    add_repeating_timer_ms(-500, on_cursor_timer, NULL, &cursor_timer);
 
     lcd_initialised = true; // Set the initialised flag
 }

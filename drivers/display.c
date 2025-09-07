@@ -99,11 +99,15 @@ const uint16_t xterm_palette[256] = {
 //  Reference: https://vt100.net/docs/vt100-ug/chapter3.html
 //
 
+bool tab_stops[64] = {0};
+uint8_t debug[64] = {0};
+int debug_index = 0;
+
 uint8_t state = STATE_NORMAL; // initial state of escape sequence processing
 uint8_t column = 0;           // cursor x position
 uint8_t row = 0;              // cursor y position
 
-uint8_t parameters[16]; // buffer for selective parameters
+uint16_t parameters[16]; // buffer for selective parameters
 uint8_t p_index = 0;    // index into the buffer
 
 uint8_t save_column = 0; // saved cursor x position for DECSC/DECRC
@@ -165,6 +169,22 @@ static void report(const char *msg)
     }
 }
 
+static void reset_terminal()
+{
+    // Reset terminal state
+    lcd_set_reverse(false);
+    lcd_set_foreground(FOREGROUND);
+    lcd_set_background(BACKGROUND);
+    lcd_set_underscore(false);
+    lcd_enable_cursor(true);
+    set_g0_charset(CHARSET_ASCII); // reset character set to ASCII
+    set_g1_charset(CHARSET_ASCII);
+    lcd_define_scrolling(0, 0); // no scrolling area defined
+    lcd_clear_screen();
+    leds = 0;          // reset LED state
+    update_leds(leds); // reset LEDs
+}
+
 //
 // Display API
 //
@@ -176,6 +196,9 @@ bool display_emit_available()
 
 void display_emit(char ch)
 {
+    int max_row = MAX_ROW;
+    int max_col = lcd_get_columns() - 1;
+
     lcd_erase_cursor(); // erase the cursor before processing the character
 
     // State machine for processing incoming characters
@@ -207,7 +230,13 @@ void display_emit(char ch)
             column = 0;
             row++;
             break;
-        case 'M': // RI – Reverse Index
+        case 'H': // HTS – Horizontal Tabulation Set
+            if (column < sizeof(tab_stops))
+            {
+                tab_stops[column] = true; // Set a tab stop at the current column
+            }
+            break;
+        case 'M':         // RI – Reverse Index
             if (row == 0) // scroll at top of the screen
             {
                 lcd_scroll_down();
@@ -219,22 +248,23 @@ void display_emit(char ch)
             break;
         case 'c': // RIS – Reset To Initial State
             column = row = 0;
-            lcd_set_reverse(false);
-            lcd_set_foreground(FOREGROUND);
-            lcd_set_background(BACKGROUND);
-            lcd_set_underscore(false);
-            lcd_enable_cursor(true);
-            set_g0_charset(CHARSET_ASCII); // reset character set to ASCII
-            set_g1_charset(CHARSET_ASCII);
-            lcd_define_scrolling(0, 0); // no scrolling area defined
-            lcd_clear_screen();
-            leds = 0;          // reset LED state
-            update_leds(leds); // reset LEDs
+            reset_terminal();
             break;
         case '[': // CSI - Control Sequence Introducer
             p_index = 0;
             memset(parameters, 0, sizeof(parameters));
+            memset(debug, 0, sizeof(debug));
+            debug[0] = '\033';
+            debug[1] = ch;
+            debug_index = 2;
             state = STATE_CS;
+            break;
+        case ']': // OSC - Operating System Command
+        case 'X': // SOS - Start of String (treat as OSC)
+        case '^': // PM - Privacy Message (treat as OSC)
+        case '_': // APC - Application Program Command (treat as OSC)
+        case 'P': // DCS - Device Control String (treat as OSC)
+            state = STATE_OSC;
             break;
         case '(': // SCS - G0 character set selection
             state = STATE_G0_SET;
@@ -249,6 +279,7 @@ void display_emit(char ch)
         break;
 
     case STATE_CS: // in Control Sequence
+        debug[debug_index++] = ch;
         if (ch == CHR_ESC)
         {
             state = STATE_ESCAPE;
@@ -257,6 +288,10 @@ void display_emit(char ch)
         else if (ch == '?') // DEC private mode
         {
             state = STATE_DEC;
+        }
+        else if (ch == '!') // TMC
+        {
+            state = STATE_TMC;
         }
         else if (ch >= '0' && ch <= '9')
         {
@@ -279,22 +314,60 @@ void display_emit(char ch)
                 row = MAX(0, row - parameters[0]);
                 break;
             case 'B': // CUD – Cursor Down
-                row = MIN(row + parameters[0], MAX_ROW);
+                row = MIN(row + parameters[0], max_row);
                 break;
             case 'C': // CUF – Cursor Forward
-                column = MIN(column + parameters[0], lcd_get_columns() - 1);
+                column = MIN(column + parameters[0], max_col);
                 break;
             case 'D': // CUB - Cursor Backward
                 column = MAX(0, column - parameters[0]);
                 break;
-            case 'J':               // ED – Erase In Display
+            case 'E': // CNL – CursorNext Line
+                if (parameters[0] == 0)
+                {
+                    parameters[0] = 1; // default to 1 if not specified
+                }
+                row = MIN(row + parameters[0], max_row);
+                column = 0;
+                break;
+            case 'F': // CPL – Cursor Previous Line
+                if (parameters[0] == 0)
+                {
+                    parameters[0] = 1; // default to 1 if not specified
+                }
+                row = MAX(0, row - parameters[0]);
+                column = 0;
+                break;
+            case 'G': // CHA - Cursor Horizontal Absolute
+                if (parameters[0] == 0)
+                {
+                    parameters[0] = 1; // default to 1 if not specified
+                }
+                column = MIN(parameters[0] - 1, max_col);
+                column = MAX(0, column);
+                break;
+
+            case 'H': // CUP – Cursor Position
+            case 'f': // HVP – Horizontal and Vertical Position
+                if (parameters[0] == 0)
+                {
+                    parameters[0] = 1; // default to 1 if not specified
+                }
+                if (parameters[1] == 0)
+                {
+                    parameters[1] = 1; // default to 1 if not specified
+                }
+                row = MIN(parameters[0] - 1, max_row);
+                column = MIN(parameters[1] - 1, max_col);
+                break;
+            case 'J': // ED – Erase In Display
                 if (parameters[0] == 0)
                 {
                     // Erase from cursor to end of screen
-                    lcd_erase_line(row, column, lcd_get_columns());
-                    for (uint8_t r = row + 1; r <= MAX_ROW; r++)
+                    lcd_erase_line(row, column, max_col);
+                    for (uint8_t r = row + 1; r <= max_row; r++)
                     {
-                        lcd_erase_line(r, 0, lcd_get_columns());
+                        lcd_erase_line(r, 0, max_col);
                     }
                 }
                 else if (parameters[0] == 1)
@@ -302,7 +375,7 @@ void display_emit(char ch)
                     // Erase from start of screen to cursor
                     for (uint8_t r = 0; r < row; r++)
                     {
-                        lcd_erase_line(r, 0, lcd_get_columns());
+                        lcd_erase_line(r, 0, max_col);
                     }
                     lcd_erase_line(row, 0, column);
                 }
@@ -311,11 +384,11 @@ void display_emit(char ch)
                     lcd_clear_screen();
                 }
                 break;
-            case 'K':               // EL – Erase In Line
+            case 'K': // EL – Erase In Line
                 if (parameters[0] == 0)
                 {
                     // Erase from cursor to end of line
-                    lcd_erase_line(row, column, lcd_get_columns());
+                    lcd_erase_line(row, column, max_col);
                 }
                 else if (parameters[0] == 1)
                 {
@@ -324,11 +397,63 @@ void display_emit(char ch)
                 }
                 else if (parameters[0] == 2) // clear entire line
                 {
-                    lcd_erase_line(row, 0, lcd_get_columns());
+                    lcd_erase_line(row, 0, max_col);
+                }
+                break;
+            case 'S': // SU - Scroll Up
+                if (parameters[0] == 0)
+                {
+                    parameters[0] = 1; // default to 1 if not specified
+                }
+                while (parameters[0]-- > 0)
+                {
+                    lcd_scroll_up();
+                }
+                break;
+            case 'T': // SD - Scroll Down
+                if (parameters[0] == 0)
+                {
+                    parameters[0] = 1; // default to 1 if not specified
+                }
+                while (parameters[0]-- > 0)
+                {
+                    lcd_scroll_down();
                 }
                 break;
             case 'c': // DA - Device Attributes
                 report("\033[?1;c");
+                break;
+            case 'd': // VPA - Vertical Position Absolute
+                if (parameters[0] == 0)
+                {
+                    parameters[0] = 1; // default to 1 if not specified
+                }
+                row = MIN(parameters[0] - 1, max_row);
+                break;
+            case 'e': // VPR - Vertical Position Relative
+                if (parameters[0] == 0)
+                {
+                    parameters[0] = 1; // default to 1 if not specified
+                }
+                row = MIN(row + parameters[0], max_row);
+                break;
+            case 'g': // TBC – Tabulation Clear
+                if (parameters[0] == 3)
+                {
+                    // Clear all tab stops
+                    memset(tab_stops, 0, sizeof(tab_stops));
+                }
+                else if (parameters[0] == 0)
+                {
+                    // Clear tab stop at current column
+                    if (column < sizeof(tab_stops))
+                    {
+                        tab_stops[column] = false;
+                    }
+                }
+                break;
+            case 'l': // RM – Reset Mode
+            case 'h': // SM – Set Mode
                 break;
             case 'm': // SGR – Select Graphic Rendition
                 for (uint8_t i = 0; i <= p_index; i++)
@@ -436,7 +561,7 @@ void display_emit(char ch)
                     }
                 }
                 break;
-            case 'n': // Device Status Report
+            case 'n':                   // Device Status Report
                 if (parameters[0] == 5) // DSR - Device Status Report
                 {
                     report("\033[0n");
@@ -447,11 +572,6 @@ void display_emit(char ch)
                     snprintf(buf, sizeof(buf), "\033[%d;%dR", row + 1, column + 1);
                     report(buf);
                 }
-                break;
-            case 'f': // HVP – Horizontal and Vertical Position
-            case 'H': // CUP – Cursor Position
-                row = MIN(parameters[0] - 1, MAX_ROW - 1);
-                column = MIN(parameters[1] - 1, lcd_get_columns() - 1);
                 break;
             case CHR_CAN:                      // cancel the current escape sequence
             case CHR_SUB:                      // same as CAN
@@ -471,13 +591,60 @@ void display_emit(char ch)
                 }
                 update_leds(leds); // update the LEDs
                 break;
+            case 'r': // DECSTBM – Set Top and Bottom Margins
+                if (parameters[0] == 0)
+                {
+                    parameters[0] = 1; // default to 1 if not specified
+                }
+                if (parameters[1] == 0)
+                {
+                    parameters[1] = 1; // default to 1 if not specified
+                }
+                uint8_t top_row = MIN(parameters[0] - 1, max_row);
+                uint8_t bottom_row = MIN(parameters[1] - 1, max_row);
+                if (bottom_row > top_row)
+                {
+                    lcd_define_scrolling(top_row, max_row - bottom_row);
+                }
+                else
+                {
+                    lcd_scroll_reset();
+                }
+                row = top_row;
+                column = 0;
+                break;
+            case 's': // DECSC – Save Cursor (ANSI)
+                save_column = column;
+                save_row = row;
+                break;
+            case 't': // - Lines per page
+                // Not supported, ignore
+                break;
+            case 'u': // DECRC – Restore Cursor (ANSI)
+                column = save_column;
+                row = save_row;
+                break;
             default:
-                break; // ignore unknown sequences
+                ch += 0;
+                lcd_putc(column++, row, 0x02); // print a error character
+                break;                         // ignore unknown sequences
             }
         }
         break;
 
+    case STATE_TMC:
+        switch (ch)
+        {
+        case 'p': // Soft reset
+            reset_terminal();
+
+            break;
+        }
+        state = STATE_NORMAL;
+        break;
+
     case STATE_DEC: // in DEC private mode sequence
+        debug[debug_index++] = ch;
         if (ch == CHR_ESC)
         {
             state = STATE_ESCAPE;
@@ -504,6 +671,12 @@ void display_emit(char ch)
                 if (parameters[0] == 25) // DECTCEM - Text Cursor Enable Mode
                 {
                     lcd_enable_cursor(true);
+                    lcd_draw_cursor();
+                }
+                else if (parameters[0] == 4264)
+                {
+                    // set 64 column mode
+                    lcd_set_font(&font_5x10);
                 }
                 break;
             case 'l':                    // DECRST - DEC Private Mode Reset
@@ -512,9 +685,19 @@ void display_emit(char ch)
                     lcd_enable_cursor(false);
                     lcd_erase_cursor(); // immediately hide cursor
                 }
+                else if (parameters[0] == 4264)
+                {
+                    // set 64 column mode
+                    lcd_set_font(&font_8x10);
+                }
+                break;
+            case 'm':
+                // Ignore for now
                 break;
             default:
-                break; // ignore unknown DEC private mode sequences
+                ch += 0;
+                lcd_putc(column++, row, 0x01); // print a error character
+                break;                         // ignore unknown DEC private mode sequences
             }
         }
         break;
@@ -555,6 +738,21 @@ void display_emit(char ch)
             // Unknown character set, ignore
             break;
         }
+        break;
+
+    case STATE_OSC: // in Operating System Command
+        if (ch == CHR_ESC)
+        {
+            state = STATE_OSC_ESC;
+        }
+        else if (ch == '\007' || ch == 0x9C)
+        {
+            state = STATE_NORMAL; // reset state after processing the OSC sequence
+        }
+        break;
+
+    case STATE_OSC_ESC: // in OSC escape sequence
+        state = ch == '\\' ? STATE_NORMAL : STATE_OSC;
         break;
 
     case STATE_NORMAL:
@@ -611,15 +809,15 @@ void display_emit(char ch)
     }
 
     // Handle wrapping and scrolling
-    if (column > lcd_get_columns() - 1) // wrap around at end of the line
+    if (column > max_col) // wrap around at end of the line
     {
         column = 0;
         row++;
     }
 
-    if (row > MAX_ROW) // scroll at bottom of the screen
+    if (row > max_row) // scroll at bottom of the screen
     {
-        while (row > MAX_ROW) // scroll until y is within bounds
+        while (row > max_row) // scroll until y is within bounds
         {
             lcd_scroll_up(); // scroll up to make space at the bottom
             row--;
@@ -630,6 +828,10 @@ void display_emit(char ch)
     lcd_move_cursor(column, row);
     lcd_draw_cursor(); // draw the cursor at the new position
 }
+
+//
+//  Display Callback Setters
+//
 
 void display_set_led_callback(led_callback_t callback)
 {
@@ -650,10 +852,14 @@ void display_set_report_callback(report_callback_t callback)
 //  Display Initialization
 //
 
-void display_init(led_callback_t led_callback, bell_callback_t bell_callback)
+void display_init()
 {
-    display_led_callback = led_callback;   // Set the LED callback function
-    display_bell_callback = bell_callback; // Set the bell callback function
-
+    // Make sure the LCD is initialized
     lcd_init();
+
+    // Set tab stops every 8 columns by default
+    for (int i = 3; i < 64; i += 8)
+    {
+        tab_stops[i] = true;
+    }
 }

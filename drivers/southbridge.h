@@ -12,6 +12,7 @@
 // Keyboard interface definitions
 #define SB_BAUDRATE       (10000)
 #define SB_ADDR            (0x1F)
+#define SB_I2C_TIMEOUT_US  (10000)
 
 
 // Keyboard register definitions
@@ -31,12 +32,10 @@
 #define SB_WRITE           (0x80)      // write to register
 
 // Function prototypes
-bool sb_available();
-void sb_acquire();
-void sb_release();
-void sb_write(const uint8_t *src, size_t len);
-void sb_read(uint8_t *dst, size_t len);
-void sb_init();
+void sb_init(void);
+bool sb_available(void);
+size_t sb_write(const uint8_t *src, size_t len);
+size_t sb_read(uint8_t *dst, size_t len);
 
 uint16_t sb_read_keyboard(void);
 uint16_t sb_read_keyboard_state(void);
@@ -46,5 +45,5 @@ uint8_t sb_write_lcd_backlight(uint8_t brightness);
 uint8_t sb_read_keyboard_backlight(void);
 uint8_t sb_write_keyboard_backlight(uint8_t brightness);
 bool sb_is_power_off_supported(void);
-void sb_write_power_off_delay(uint8_t delay_seconds);
-void sb_reset(uint8_t delay_seconds);
+bool sb_write_power_off_delay(uint8_t delay_seconds);
+bool sb_reset(uint8_t delay_seconds);

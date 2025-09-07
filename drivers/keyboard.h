@@ -49,13 +49,18 @@
 
 #define KEY_POWER           (0x91)
 
-// Keyboard type-ahead buffer
+// Keyboard defaults
 #define KBD_BUFFER_SIZE     (32)
+#define KEYBOARD_POLL_MS    (100) // poll keyboard every 100 ms
+
 
 // Callback function type for when a key becomes available
 typedef void (*keyboard_key_available_callback_t)(void);
 
 // Keyboard Function prototypes
-void keyboard_init(keyboard_key_available_callback_t key_available_callback);
+void keyboard_init(void);
+void keyboard_set_key_available_callback(keyboard_key_available_callback_t callback);
+void keyboard_set_background_poll(bool enable);
+void keyboard_poll();
 bool keyboard_key_available();
 char keyboard_get_key();

@@ -11,6 +11,9 @@
 #define STATE_DEC       (3)             // DEC private mode sequence (?)
 #define STATE_G0_SET    (4)             // setting G0 character set ESC(
 #define STATE_G1_SET    (5)             // setting G1 character set ESC)
+#define STATE_OSC       (6)             // Operating System Command (OSC)
+#define STATE_OSC_ESC   (7)             // Operating System Command (OSC) ESC
+#define STATE_TMC       (8)             // Terminal Management Control (TMC)
 
 // Control characters
 #define CHR_BEL         (0x07)          // Bell
@@ -54,7 +57,7 @@ typedef void (*bell_callback_t)(void);
 typedef void (*report_callback_t)(const char *);
 
 // Function prototypes
-void display_init(led_callback_t led_callback, bell_callback_t bell_callback);
+void display_init(void);
 void display_set_led_callback(led_callback_t callback);
 void display_set_bell_callback(bell_callback_t callback);
 void display_set_report_callback(report_callback_t callback);
