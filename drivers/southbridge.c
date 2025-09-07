@@ -31,7 +31,7 @@ bool sb_available()
 static size_t sb_write(const uint8_t *src, size_t len)
 {
     int result = i2c_write_timeout_us(SB_I2C, SB_ADDR, src, len, false, SB_I2C_TIMEOUT_US * len);
-    if (result == PICO_ERROR_GENERIC || len == PICO_ERROR_TIMEOUT)
+    if (result == PICO_ERROR_GENERIC || result == PICO_ERROR_TIMEOUT)
     {
         // Write error
         return 0;
