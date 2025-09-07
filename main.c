@@ -4,6 +4,7 @@
 #include "pico/stdlib.h"
 
 #include "drivers/picocalc.h"
+#include "drivers/display.h"
 #include "drivers/keyboard.h"
 #include "drivers/onboard_led.h"
 
