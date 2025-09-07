@@ -625,7 +625,6 @@ void display_emit(char ch)
                 row = save_row;
                 break;
             default:
-                ch += 0;
                 lcd_putc(column++, row, 0x02); // print a error character
                 break;                         // ignore unknown sequences
             }
