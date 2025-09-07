@@ -694,7 +694,6 @@ void display_emit(char ch)
                 // Ignore for now
                 break;
             default:
-                ch += 0;
                 lcd_putc(column++, row, 0x01); // print a error character
                 break;                         // ignore unknown DEC private mode sequences
             }
