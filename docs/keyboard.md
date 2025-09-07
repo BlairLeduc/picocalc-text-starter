@@ -12,13 +12,38 @@ The type ahead buffer allows users to type even while your project is processing
 
 ## keyboard_init
 
-`void keyboard_init(keyboard_key_available_callback_t key_available_callback)`
+`void keyboard_init(void)`
 
 Initialises the keyboard.
 
+
+## keyboard_set_key_available_callback
+
+`void keyboard_set_key_available_callback(keyboard_key_available_callback_t callback)`
+
+Sets a callback function that is called when keys are available.
+
 ### Parameters
 
-key_available_callback - called when keys are available
+callback - called when keys are available
+
+
+## keyboard_set_background_poll
+
+`void keyboard_set_background_poll(bool enable)`
+
+Enables or disables background polling of the keyboard.
+
+### Parameters
+
+enable - true to enable background polling, false to disable
+
+
+## keyboard_poll
+
+`void keyboard_poll(void)`
+
+Polls the keyboard for key presses.
 
 
 ## keyboard_key_available

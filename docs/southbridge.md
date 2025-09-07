@@ -2,6 +2,20 @@
 
 The southbridge is the MPU (STM32F103R8T6) on the mainboard of the PicoCalc. This MPU interfaces the low-speed devices to the Pico.
 
+
+## sb_init
+
+`void sb_init(void)`
+
+Initializes the southbridge interface.
+
+## sb_available
+
+`bool sb_available(void)`
+
+Returns true if the southbridge is available, false otherwise.
+
+
 ## sb_read_keyboard
 
 `uint16_t sb_read_keyboard(void)`
@@ -66,13 +80,13 @@ Returns true if power off is supported, false otherwise. This function will retu
 
 ## sb_write_power_off_delay
 
-`void sb_write_power_off_delay(uint8_t delay_seconds)`
+`bool sb_write_power_off_delay(uint8_t delay_seconds)`
 
 Powers off the PicoCalc after the specified delay. Requires BIOS 1.4.
 
 
 ## sb_reset
 
-`void sb_reset(uint8_t delay_seconds)`
+`bool sb_reset(uint8_t delay_seconds)`
 
 Reset the PicoCalc after a delay. Requires BIOS 1.4.

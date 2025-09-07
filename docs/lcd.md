@@ -107,20 +107,6 @@ Turn the display on.
 Turn the display off.
 
 
-## lcd_set_window
-
-`void lcd_set_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)`
-
-Sets the window for drawing on the display.
-
-### Parameters
-
-- x0 – left edge of the window in pixels
-- y0 – top edge of the window in pixels
-- x1 – right edge of the window in pixels
-- y1 – bottom edge of the window in pixels
-
-
 ## lcd_blit
 
 `void lcd_blit(uint16_t *pixels, uint16_t x, uint16_t y, uint16_t width, uint16_t height)`
@@ -182,6 +168,19 @@ Scroll the screen down one line adding room for a line of text at the top of the
 `void lcd_clear_screen(void)`
 
 Clear the display.
+
+
+## lcd_erase_line
+
+`void lcd_erase_line(uint8_t row, uint8_t col_start, uint8_t col_end)`
+
+Erases a line of text on the display.
+
+### Parameters
+
+- row – the row to erase
+- col_start – the starting column to erase
+- col_end – the ending column to erase
 
 
 ## lcd_putc

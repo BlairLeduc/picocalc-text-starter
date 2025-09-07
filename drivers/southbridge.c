@@ -28,7 +28,7 @@ bool sb_available()
     return atomic_load(&sb_i2c_in_use) == false;
 }
 
-size_t sb_write(const uint8_t *src, size_t len)
+static size_t sb_write(const uint8_t *src, size_t len)
 {
     int result = i2c_write_timeout_us(SB_I2C, SB_ADDR, src, len, false, SB_I2C_TIMEOUT_US * len);
     if (result == PICO_ERROR_GENERIC || len == PICO_ERROR_TIMEOUT)
@@ -39,7 +39,7 @@ size_t sb_write(const uint8_t *src, size_t len)
     return result;
 }
 
-size_t sb_read(uint8_t *dst, size_t len)
+static size_t sb_read(uint8_t *dst, size_t len)
 {
     int result = i2c_read_timeout_us(SB_I2C, SB_ADDR, dst, len, false, SB_I2C_TIMEOUT_US * len);
     if (result == PICO_ERROR_GENERIC || result == PICO_ERROR_TIMEOUT)

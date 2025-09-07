@@ -26,20 +26,50 @@ The font (8x10) is easily modifyable in source with out any additional tooling. 
 
 ## display_init
 
-`void display_init(led_callback_t led_callback, bell_callback_t bell_callback)`
+`void display_init(void)`
 
 Initialises the LCD display.
+
+
+## display_set_led_callback
+
+`void display_set_led_callback(led_callback_t callback)`
+
+Sets a callback function that is called when the state of the LEDs changes.
 
 ### Parameters
 
 led_callback – called when the state of the LEDs changes
+
+
+## display_set_bell_callback
+
+`void display_set_bell_callback(bell_callback_t callback)`
+
+Sets a callback function that is called when the BEL character is received.
+
+### Parameters
+
 bell_callback – called when the BEL character is received
+
+
+## display_set_report_callback
+
+`void display_set_report_callback(report_callback_t callback)`
+
+Sets a callback function that is called when the REPORT character is received.
+
+### Parameters
+
+report_callback – called when the REPORT character is received
+
 
 ## display_emit_available
 
 `bool display_emit_available(void)`
 
 Returns true if the display can accept characters.
+
 
 ## display_emit
 
