@@ -213,6 +213,18 @@ Returns FAT32_OK if successful, otherwise an error code is returned.
 - path – the path to the file to delete
 
 
+## fat32_rename
+
+`fat32_error_t fat32_rename(const char *old_path, const char *new_path)`
+
+Renames or moves a file or directory.
+
+### Parameters
+
+- old_path – the current path of the file or directory
+- new_path – the new path for the file or directory
+
+
 ## fat32_set_current_dir
 
 `fat32_error_t fat32_set_current_dir(const char *path)`

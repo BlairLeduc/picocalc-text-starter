@@ -230,7 +230,7 @@ static void lcd_set_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 //  red component in the upper 5 bits, the green component in the middle 6 bits, and the
 //  blue component in the lower 5 bits.
 
-void lcd_blit(uint16_t *pixels, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
+void lcd_blit(const uint16_t *pixels, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
 {
     lcd_disable_interrupts();
     if (y >= lcd_scroll_top && y < HEIGHT - lcd_scroll_bottom)

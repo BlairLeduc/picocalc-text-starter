@@ -94,7 +94,7 @@ void lcd_write16_data(uint8_t len, ...);
 void lcd_write16_buf(const uint16_t *buffer, size_t len);
 
 // Display window and drawing functions
-void lcd_blit(uint16_t *pixels, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
+void lcd_blit(const uint16_t *pixels, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
 void lcd_solid_rectangle(uint16_t colour, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
 
 // Scrolling functions

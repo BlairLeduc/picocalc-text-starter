@@ -41,7 +41,7 @@
 #define WHITE_PHOSPHOR  RGB(216, 240, 255)  // white phosphor
 #define GREEN_PHOSPHOR  RGB(51, 255, 102)   // green phosphor
 #define AMBER_PHOSPHOR  RGB(255, 255, 51)   // amber phosphor
-#define FOREGROUND      WHITE_PHOSPHOR      // default foreground colour
+#define FOREGROUND      RGB(255, 255, 255)  // default foreground colour
 #define BACKGROUND      RGB(0, 0, 0)        // default background colour
 #define BRIGHT          RGB(255, 255, 255)  // white
 #define DIM             RGB(128, 128, 128)  // dim grey
