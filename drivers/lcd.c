@@ -597,10 +597,10 @@ void lcd_reset()
 {
     // Blip the reset pin to reset the LCD controller
     gpio_put(LCD_RST, 0);
-    sleep_us(20); // 20µs reset pulse (10µs minimum)
+    busy_wait_us(20); // 20µs reset pulse (10µs minimum)
 
     gpio_put(LCD_RST, 1);
-    sleep_ms(120); // 5ms required after reset, but 120ms needed before sleep out command
+    busy_wait_us(120000); // 5ms required after reset, but 120ms needed before sleep out command
 }
 
 // Turn on the LCD display
@@ -684,7 +684,7 @@ void lcd_init()
     lcd_reset(); // reset the LCD controller
 
     lcd_write_cmd(LCD_CMD_SWRESET); // reset the commands and parameters to their S/W Reset default values
-    sleep_ms(10);                   // required to wait at least 5ms
+    busy_wait_us(10000);                   // required to wait at least 5ms
 
     lcd_write_cmd(LCD_CMD_COLMOD); // pixel format set
     lcd_write_data(1, 0x55);       // 16 bit/pixel (RGB565)
@@ -708,7 +708,7 @@ void lcd_init()
     lcd_write_cmd(LCD_CMD_SLPOUT); // sleep out
     lcd_enable_interrupts();
 
-    sleep_ms(10);                  // required to wait at least 5ms
+    busy_wait_us(10000);                  // required to wait at least 5ms
 
     // Clear the screen
     lcd_clear_screen();
