@@ -100,15 +100,20 @@ const uint16_t xterm_palette[256] = {
 //
 
 bool tab_stops[64] = {0};
+
+#define DEBUG_TERMINAL // Enable debug capture of escape sequences
+
+#ifdef DEBUG_TERMINAL
 uint8_t debug[64] = {0};
 int debug_index = 0;
+#endif
 
 uint8_t state = STATE_NORMAL; // initial state of escape sequence processing
 uint8_t column = 0;           // cursor x position
 uint8_t row = 0;              // cursor y position
 
 uint16_t parameters[16]; // buffer for selective parameters
-uint8_t p_index = 0;    // index into the buffer
+uint8_t p_index = 0;     // index into the buffer
 
 uint8_t save_column = 0; // saved cursor x position for DECSC/DECRC
 uint8_t save_row = 0;    // saved cursor y position for DECSC/DECRC
@@ -214,6 +219,10 @@ void display_emit(char ch)
             break;
         case CHR_ESC:
             state = STATE_ESCAPE; // stay in escape state
+#ifdef DEBUG_TERMINAL
+            debug_index = 0;
+            debug[debug_index++] = ch;
+#endif
             break;
         case '7': // DECSC – Save Cursor
             save_column = column;
@@ -279,7 +288,9 @@ void display_emit(char ch)
         break;
 
     case STATE_CS: // in Control Sequence
+#ifdef DEBUG_TERMINAL
         debug[debug_index++] = ch;
+#endif
         if (ch == CHR_ESC)
         {
             state = STATE_ESCAPE;
@@ -288,6 +299,10 @@ void display_emit(char ch)
         else if (ch == '?') // DEC private mode
         {
             state = STATE_DEC;
+        }
+        else if (ch == '>') // Secondary Device Attributes
+        {
+            state = STATE_SDA;
         }
         else if (ch == '!') // TMC
         {
@@ -418,6 +433,17 @@ void display_emit(char ch)
                 while (parameters[0]-- > 0)
                 {
                     lcd_scroll_down();
+                }
+                break;
+            case 'X': // ECH – Erase Character
+                if (parameters[0] == 0)
+                {
+                    parameters[0] = 1; // default to 1 if not specified
+                }
+                // Erase 'parameters[0]' characters from current cursor position
+                for (uint8_t i = 0; i < parameters[0] && (column + i) <= max_col; i++)
+                {
+                    lcd_putc(column + i, row, ' '); // Replace with space character
                 }
                 break;
             case 'c': // DA - Device Attributes
@@ -625,6 +651,9 @@ void display_emit(char ch)
                 row = save_row;
                 break;
             default:
+#ifdef DEBUG_TERMINAL
+                __builtin_trap(); // trigger a breakpoint for unknown sequences in debug mode
+#endif
                 lcd_putc(column++, row, 0x02); // print a error character
                 break;                         // ignore unknown sequences
             }
@@ -643,7 +672,9 @@ void display_emit(char ch)
         break;
 
     case STATE_DEC: // in DEC private mode sequence
+#ifdef DEBUG_TERMINAL
         debug[debug_index++] = ch;
+#endif
         if (ch == CHR_ESC)
         {
             state = STATE_ESCAPE;
@@ -694,6 +725,9 @@ void display_emit(char ch)
                 // Ignore for now
                 break;
             default:
+#ifdef DEBUG_TERMINAL
+                __builtin_trap(); // trigger a breakpoint for unknown sequences in debug mode
+#endif
                 lcd_putc(column++, row, 0x01); // print a error character
                 break;                         // ignore unknown DEC private mode sequences
             }
@@ -753,6 +787,48 @@ void display_emit(char ch)
         state = ch == '\\' ? STATE_NORMAL : STATE_OSC;
         break;
 
+    case STATE_SDA: // in Secondary Device Attributes sequence
+#ifdef DEBUG_TERMINAL
+        debug[debug_index++] = ch;
+#endif
+        if (ch == CHR_ESC)
+        {
+            state = STATE_ESCAPE;
+            break; // reset to escape state
+        }
+        else if (ch >= '0' && ch <= '9')
+        {
+            parameters[p_index] *= 10; // accumulate digits
+            parameters[p_index] += ch - '0';
+        }
+        else if (ch == ';') // delimiter
+        {
+            if (p_index < sizeof(parameters) - 1)
+            {
+                p_index++;
+            }
+        }
+        else // final character in SDA sequence
+        {
+            state = STATE_NORMAL; // reset state after processing
+            switch (ch)
+            {
+            case 'c': // Secondary Device Attributes
+                // Report terminal type and version
+                // Format: ESC [ > Pp ; Pv ; Pc c
+                // Pp = terminal type, Pv = version, Pc = ROM cartridge
+                report("\033[>1;10;0c"); // VT100 compatible, version 1.0, no ROM
+                break;
+            default:
+#ifdef DEBUG_TERMINAL
+                //__builtin_trap(); // trigger a breakpoint for unknown sequences
+#endif
+                //lcd_putc(column++, row, 0x02); // print error character
+                break;
+            }
+        }
+        break;
+
     case STATE_NORMAL:
     default:
         // Normal/default state, process characters directly
@@ -799,27 +875,27 @@ void display_emit(char ch)
                     ch -= 0x5F;
                 }
 
+                // Handle wrapping and scrolling
+                if (column > max_col) // wrap around at end of the line
+                {
+                    column = 0;
+                    row++;
+                }
+
+                if (row > max_row) // scroll at bottom of the screen
+                {
+                    while (row > max_row) // scroll until y is within bounds
+                    {
+                        lcd_scroll_up(); // scroll up to make space at the bottom
+                        row--;
+                    }
+                }
+
                 lcd_putc(column++, row, ch);
             }
             break;
         }
         break;
-    }
-
-    // Handle wrapping and scrolling
-    if (column > max_col) // wrap around at end of the line
-    {
-        column = 0;
-        row++;
-    }
-
-    if (row > max_row) // scroll at bottom of the screen
-    {
-        while (row > max_row) // scroll until y is within bounds
-        {
-            lcd_scroll_up(); // scroll up to make space at the bottom
-            row--;
-        }
     }
 
     // Update cursor position

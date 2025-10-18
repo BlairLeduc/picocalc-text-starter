@@ -14,6 +14,7 @@
 #define STATE_OSC       (6)             // Operating System Command (OSC)
 #define STATE_OSC_ESC   (7)             // Operating System Command (OSC) ESC
 #define STATE_TMC       (8)             // Terminal Management Control (TMC)
+#define STATE_SDA       (9)             // Secondary Device Attributes (SDA)
 
 // Control characters
 #define CHR_BEL         (0x07)          // Bell

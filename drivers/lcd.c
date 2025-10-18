@@ -575,7 +575,8 @@ void lcd_draw_cursor()
 {
     if (cursor_enabled)
     {
-        lcd_solid_rectangle(foreground, cursor_column * font->width, ((cursor_row + 1) * GLYPH_HEIGHT) - 1, font->width, 1);
+        uint16_t colour = reverse ? background : foreground;
+        lcd_solid_rectangle(colour, cursor_column * font->width, ((cursor_row + 1) * GLYPH_HEIGHT) - 1, font->width, 1);
     }
 }
 
@@ -584,7 +585,8 @@ void lcd_erase_cursor()
 {
     if (cursor_enabled)
     {
-        lcd_solid_rectangle(background, cursor_column * font->width, ((cursor_row + 1) * GLYPH_HEIGHT) - 1, font->width, 1);
+        uint16_t colour = reverse ? foreground : background;
+        lcd_solid_rectangle(colour, cursor_column * font->width, ((cursor_row + 1) * GLYPH_HEIGHT) - 1, font->width, 1);
     }
 }
 
