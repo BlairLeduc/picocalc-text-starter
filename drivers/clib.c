@@ -181,7 +181,7 @@ off_t _lseek(int fd, off_t offset, int whence)
         file->position = file->file_size + offset;
     }
 
-    if ((result = fat32_seek(file, offset)) == FAT32_OK)
+    if ((result = fat32_seek(file, file->position)) == FAT32_OK)
     {
         return file->position; // Success
     }
