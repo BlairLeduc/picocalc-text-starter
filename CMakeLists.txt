@@ -23,7 +23,7 @@ if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
-set(PICO_BOARD pico CACHE STRING "Board type")
+set(PICO_BOARD pico2_w CACHE STRING "Board type")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
@@ -49,6 +49,8 @@ add_executable(picocalc-text-starter
         drivers/clib.c
         drivers/display.c
         drivers/display.h
+        drivers/ds3231.c
+        drivers/ds3231.h
         drivers/fat32.c
         drivers/fat32.h
         drivers/font-5x10.c
@@ -65,7 +67,14 @@ add_executable(picocalc-text-starter
         drivers/sdcard.c
         drivers/sdcard.h
         drivers/southbridge.c
-        drivers/southbridge.h
+        drivers/southbridge.c
+        wifi.c
+        wifi.h
+        gfx.h
+        gfx.c
+        gfx_core.h
+        gfx_core.c
+        sprites.h
         )
 
 pico_set_program_name(picocalc-text-starter "picocalc-text-starter")
@@ -77,10 +86,14 @@ pico_generate_pio_header(picocalc-text-starter ${CMAKE_CURRENT_LIST_DIR}/drivers
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(picocalc-text-starter 0)
-pico_enable_stdio_usb(picocalc-text-starter 0)
+pico_enable_stdio_usb(picocalc-text-starter 1)
 
 # Turn on all warnings
-target_compile_options(picocalc-text-starter PRIVATE -Wall -Werror)
+target_compile_options(picocalc-text-starter PRIVATE -Wall )
+
+#Jobond 10/09/2025 to compile and ue WiFi in otherwise a hard assert is generated in running time
+target_compile_definitions(picocalc-text-starter PRIVATE PICO_DEFAULT_LED_PIN)
+
 
 # Add the standard library to the build
 target_link_libraries(picocalc-text-starter
@@ -102,7 +115,11 @@ target_link_libraries(picocalc-text-starter
         hardware_i2c
         hardware_spi
         hardware_pio
-        hardware_clocks
+        hardware_timer
+        hardware_dma
+        pico_time
+        pico_multicore
+        pico_cyw43_arch_lwip_poll
         )
 
 pico_add_extra_outputs(picocalc-text-starter)

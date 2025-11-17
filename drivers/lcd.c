@@ -17,10 +17,20 @@
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
 #include "hardware/spi.h"
+#include "hardware/dma.h"
 
 #include "lcd.h"
 
 static bool lcd_initialised = false; // flag to indicate if the LCD is initialised
+
+// DMA channels for SPI transfers
+static int lcd_dma_channel = -1;     // DMA channel for LCD transfers
+static bool lcd_dma_busy = false;    // flag to indicate if DMA transfer is in progress
+static volatile uint32_t lcd_dma_irq_count = 0;  // DEBUG: count interrupt calls
+
+// Callback for DMA completion (for async buffer management)
+static void (*dma_completion_callback)(const uint16_t *buffer) = NULL;
+static const uint16_t *current_dma_buffer = NULL;
 
 static uint16_t lcd_scroll_top = 0;                      // top fixed area for vertical scrolling
 static uint16_t lcd_memory_scroll_height = FRAME_HEIGHT; // scroll area height
@@ -53,6 +63,71 @@ static void lcd_enable_interrupts()
 {
     //gpio_put(3, false);
     restore_interrupts(irq_state);
+}
+
+//
+// DMA completion handler
+//
+static void lcd_dma_handler()
+{
+    // DEBUG: Increment counter to verify handler is called
+    lcd_dma_irq_count++;
+
+    // Check if this interrupt is for our channel
+    if (!(dma_hw->ints0 & (1u << lcd_dma_channel))) {
+        return; // Not our interrupt
+    }
+
+    // Clear the interrupt request
+    dma_hw->ints0 = 1u << lcd_dma_channel;
+
+    // CRITICAL: Wait for SPI to finish transmitting from FIFO
+    // The DMA interrupt fires when DMA is done writing to FIFO,
+    // but SPI might still be transmitting the last bytes
+    while (spi_is_busy(LCD_SPI)) {
+        tight_loop_contents();
+    }
+
+    // Now it's safe to deassert chip select
+    gpio_put(LCD_CSX, 1);
+
+    // Mark DMA as not busy
+    lcd_dma_busy = false;
+
+    // Restore SPI format to 8-bit for commands
+    spi_set_format(LCD_SPI, 8, 0, 0, SPI_MSB_FIRST);
+
+    // Call completion callback if registered (for async buffer release)
+    if (dma_completion_callback && current_dma_buffer) {
+        dma_completion_callback(current_dma_buffer);
+        current_dma_buffer = NULL;
+    }
+}
+
+//
+// Wait for DMA transfer to complete
+//
+static inline void lcd_dma_wait()
+{
+    while (lcd_dma_busy) {
+        tight_loop_contents();
+    }
+}
+
+//
+// Check if DMA is busy
+//
+static inline bool lcd_dma_is_busy()
+{
+    return lcd_dma_busy;
+}
+
+//
+// Get DMA interrupt count (DEBUG)
+//
+uint32_t lcd_get_dma_irq_count()
+{
+    return lcd_dma_irq_count;
 }
 
 //
@@ -134,6 +209,9 @@ void lcd_set_background(uint16_t colour)
 // Send a command
 void lcd_write_cmd(uint8_t cmd)
 {
+    // Wait for any DMA transfer to complete before sending command
+    lcd_dma_wait();
+
     gpio_put(LCD_DCX, 0); // Command
     gpio_put(LCD_CSX, 0);
     spi_write_blocking(LCD_SPI, &cmd, 1);
@@ -143,6 +221,9 @@ void lcd_write_cmd(uint8_t cmd)
 // Send 8-bit data (byte)
 void lcd_write_data(uint8_t len, ...)
 {
+    // Wait for any DMA transfer to complete before sending data
+    lcd_dma_wait();
+
     va_list args;
     va_start(args, len);
     gpio_put(LCD_DCX, 1); // Data
@@ -159,6 +240,9 @@ void lcd_write_data(uint8_t len, ...)
 // Send 16-bit data (half-word)
 void lcd_write16_data(uint8_t len, ...)
 {
+    // Wait for any DMA transfer to complete before sending data
+    lcd_dma_wait();
+
     va_list args;
 
     // DO NOT MOVE THE spi_set_format() OR THE gpio_put(LCD_DCX) CALLS!
@@ -182,6 +266,9 @@ void lcd_write16_data(uint8_t len, ...)
 
 void lcd_write16_buf(const uint16_t *buffer, size_t len)
 {
+    // Wait for any previous DMA transfer to complete before starting new one
+    lcd_dma_wait();
+
     // DO NOT MOVE THE spi_set_format() OR THE gpio_put(LCD_DCX) CALLS!
     // They are placed before the gpio_put(LCD_CSX) to ensure that a minimum
     // chip select high pulse width is achieved (at least 40ns)
@@ -189,10 +276,54 @@ void lcd_write16_buf(const uint16_t *buffer, size_t len)
 
     gpio_put(LCD_DCX, 1); // Data
     gpio_put(LCD_CSX, 0);
-    spi_write16_blocking(LCD_SPI, buffer, len);
-    gpio_put(LCD_CSX, 1);
 
-    spi_set_format(LCD_SPI, 8, 0, 0, SPI_MSB_FIRST);
+    // Use DMA in SEMI-ASYNC mode (proven stable):
+    // - DMA controller transfers data while CPU waits (CPU freed from byte-by-byte transfer)
+    // - Wait for DMA completion before returning (prevents race conditions)
+    // - This ensures proper CSX timing and SPI format sequencing
+    //
+    // Why not fully async? Race conditions cause black screen:
+    // - If we return immediately, next call might start before CSX is released
+    // - LCD requires minimum 40ns CSX high pulse between transfers
+    // - Interrupt handler timing is not deterministic enough for back-to-back transfers
+    // - Semi-async still provides significant CPU savings during the DMA transfer itself
+    if (lcd_dma_channel >= 0) {
+        // Mark DMA as busy before starting transfer
+        lcd_dma_busy = true;
+
+        // Store current buffer pointer for callback
+        current_dma_buffer = buffer;
+
+        // Configure and start DMA transfer
+        dma_channel_set_read_addr(lcd_dma_channel, buffer, false);
+        dma_channel_set_trans_count(lcd_dma_channel, len, true);
+
+        // Wait for DMA to finish transferring to SPI FIFO
+        while (dma_channel_is_busy(lcd_dma_channel)) {
+            tight_loop_contents();
+        }
+
+        // Wait for SPI FIFO to drain to LCD
+        while (spi_is_busy(LCD_SPI)) {
+            tight_loop_contents();
+        }
+
+        // Release chip select and restore SPI format
+        gpio_put(LCD_CSX, 1);
+        lcd_dma_busy = false;
+        spi_set_format(LCD_SPI, 8, 0, 0, SPI_MSB_FIRST);
+
+        // Call completion callback to release buffer (if from pool)
+        if (dma_completion_callback && current_dma_buffer) {
+            dma_completion_callback(current_dma_buffer);
+            current_dma_buffer = NULL;
+        }
+    } else {
+        // Fallback to blocking SPI if DMA not available
+        spi_write16_blocking(LCD_SPI, buffer, len);
+        gpio_put(LCD_CSX, 1);
+        spi_set_format(LCD_SPI, 8, 0, 0, SPI_MSB_FIRST);
+    }
 }
 
 //
@@ -676,6 +807,31 @@ void lcd_init()
     gpio_set_function(LCD_SDI, GPIO_FUNC_SPI);
     gpio_set_function(LCD_SDO, GPIO_FUNC_SPI);
 
+    // Initialize DMA for SPI transfers
+    lcd_dma_channel = dma_claim_unused_channel(true);
+    dma_channel_config dma_config = dma_channel_get_default_config(lcd_dma_channel);
+
+    // Configure DMA: read from memory, write to SPI TX FIFO
+    channel_config_set_transfer_data_size(&dma_config, DMA_SIZE_16);  // 16-bit transfers
+    channel_config_set_read_increment(&dma_config, true);              // increment read address
+    channel_config_set_write_increment(&dma_config, false);            // don't increment write (always SPI FIFO)
+    channel_config_set_dreq(&dma_config, spi_get_dreq(LCD_SPI, true)); // pace by SPI TX FIFO
+
+    // Set the permanent write address (SPI data register)
+    dma_channel_configure(
+        lcd_dma_channel,
+        &dma_config,
+        &spi_get_hw(LCD_SPI)->dr,  // write address: SPI data register
+        NULL,                       // read address will be set per transfer
+        0,                          // transfer count will be set per transfer
+        false                       // don't start yet
+    );
+
+    // Set up DMA interrupt
+    dma_channel_set_irq0_enabled(lcd_dma_channel, true);
+    irq_set_exclusive_handler(DMA_IRQ_0, lcd_dma_handler);
+    irq_set_enabled(DMA_IRQ_0, true);
+
     gpio_put(LCD_CSX, 1);
     gpio_put(LCD_RST, 1);
 
@@ -721,4 +877,14 @@ void lcd_init()
     add_repeating_timer_ms(-500, on_cursor_timer, NULL, &cursor_timer);
 
     lcd_initialised = true; // Set the initialised flag
+}
+
+// Check if DMA is currently busy
+bool lcd_is_dma_busy(void) {
+    return lcd_dma_busy;
+}
+
+// Set DMA completion callback (called from interrupt context)
+void lcd_set_dma_completion_callback(lcd_dma_callback_t callback) {
+    dma_completion_callback = callback;
 }

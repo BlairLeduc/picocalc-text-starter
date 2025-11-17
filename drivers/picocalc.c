@@ -30,6 +30,7 @@ static int picocalc_in_chars(char *buf, int length)
     int n = 0;
     while (n < length)
     {
+        // Read from physical keyboard only
         int c = keyboard_get_key();
         if (c == -1)
             break; // No key pressed

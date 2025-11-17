@@ -1,6 +1,7 @@
 #pragma once
 
 #include "pico/stdlib.h"
+#include <stdatomic.h>
 
 #define SB_I2C              (i2c1)      // I2C interface for the south bridge
 
@@ -25,6 +26,9 @@
 #define SB_REG_OFF         (0x0E)      // *power off
 
 #define SB_WRITE           (0x80)      // write to register
+
+// External I2C lock flag (for DS3231 coordination)
+extern volatile atomic_bool sb_i2c_in_use;
 
 // Function prototypes
 void sb_init(void);
