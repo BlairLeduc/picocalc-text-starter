@@ -54,6 +54,12 @@
 #define KEYBOARD_POLL_MS    (100) // poll keyboard every 100 ms
 
 
+#define KBD_MASK_CTL     (0x0100 )
+#define KBD_MASK_ALT     (0x0200 )
+#define KBD_MASK_SHL     (0x0400 )
+#define KBD_MASK_SHR     (0x0800 )
+#define KBD_MASK_SYM     (0x1000 )
+
 // Callback function type for when a key becomes available
 typedef void (*keyboard_key_available_callback_t)(void);
 
@@ -64,3 +70,4 @@ void keyboard_set_background_poll(bool enable);
 void keyboard_poll(void);
 bool keyboard_key_available(void);
 char keyboard_get_key(void);
+uint16_t keyboard_get_event(void);
