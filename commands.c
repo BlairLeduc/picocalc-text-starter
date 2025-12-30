@@ -1015,8 +1015,9 @@ const char* get_custom_key_name(unsigned char code) {
 void test_keys()
 {
     printf("Polling enabled (100ms interval). Press keys to see output.\n");
-    printf("Push Break to exit\n");
+    printf("Push Break twice in sequence to exit\n");
     user_interrupt = false;
+    int count = 0;
 
     while (true)
     {
@@ -1025,7 +1026,7 @@ void test_keys()
         {
             uint16_t event = keyboard_get_event();
 
-            printf("0x%02X | 0x%0X ", (event >> 8) & 0xff, event & 0xFF );
+            printf("0x%02X | 0x%02X ", (event >> 8) & 0xff, event & 0xFF );
 
             if ( event & KBD_MASK_CTL )
             {
@@ -1072,7 +1073,7 @@ void test_keys()
                 printf( "-");
             }
 
-            printf( "[KEY] ");
+            printf( " [KEY] ");
             const char* custom_name = get_custom_key_name(event & 0xff);
             if (custom_name)
             {
@@ -1091,8 +1092,20 @@ void test_keys()
            
             if (user_interrupt)
             {
-                printf("\n*** USER INTERRUPT (KEY_BREAK) DETECTED ***\n\n");
-                break;
+                count++;
+                if ( count > 1 )
+                {
+                    printf("\n*** USER INTERRUPT (KEY_BREAK x 2) DETECTED ***\n\n");
+                    break;
+                }
+                else
+                {
+                    user_interrupt = false;
+                }
+            }
+            else
+            {
+                count = 0;
             }
         }
 
