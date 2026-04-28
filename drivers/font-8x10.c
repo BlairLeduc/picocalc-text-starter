@@ -1,5 +1,6 @@
 //
 //  PicoCalc LCD display font (8x10)
+//  Copyright 2025-2026 Blair Leduc. See LICENSE for details.
 //
 //  This font is strongly based on the original font used in the VT100 terminal,
 //  including some changes made to the VT220 terminal font, and modified to look

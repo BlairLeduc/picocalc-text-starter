@@ -1,9 +1,10 @@
 //
-// clib.c - Interface to the C standard library functions for PicoCalc
+//  clib.c - Interface to the C standard library functions for PicoCalc
+//  Copyright 2025-2026 Blair Leduc. See LICENSE for details.
 //
-// This file provides implementations for file operations using the FAT32 filesystem.
+//  This file provides implementations for file operations using the FAT32 filesystem.
 //
-// Include this file in your project to enable file handling capabilities.
+//  Include this file in your project to enable file handling capabilities.
 //
 
 #include <stdio.h>

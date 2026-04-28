@@ -1,5 +1,6 @@
 //
 //  "SouthBridge" functions
+//  Copyright 2025-2026 Blair Leduc. See LICENSE for details.
 //
 //  The PicoCalc on-board processor acts as a "southbridge", managing lower-speed functions
 //  that provides access to the keyboard, battery, and other peripherals.

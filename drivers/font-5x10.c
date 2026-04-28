@@ -1,5 +1,6 @@
 //
 //  PicoCalc LCD display font (8x10)
+//  Copyright 2025-2026 Blair Leduc. See LICENSE for details.
 //
 //  This font is based on the 5x8 font from:
 //

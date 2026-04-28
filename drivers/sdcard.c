@@ -1,5 +1,6 @@
 //
 //  PicoCalc SD Card driver for interacting with SD cards
+//  Copyright 2025-2026 Blair Leduc. See LICENSE for details.
 //
 //  This driver allows file systems to talk to the SD Card at the
 //  block-level. Functions provided configure the Pico to talk to

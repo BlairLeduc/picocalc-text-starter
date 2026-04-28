@@ -1,5 +1,6 @@
 //
 //  PicoCalc LCD display driver
+//  Copyright 2025-2026 Blair Leduc. See LICENSE for details.
 //
 //  This driver interfaces with the ST7789P LCD controller on the PicoCalc.
 //

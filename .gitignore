@@ -54,6 +54,6 @@ dkms.conf
 # debug information files
 *.dwo
 
-build
+build*
 !.vscode/*
 .DS_Store

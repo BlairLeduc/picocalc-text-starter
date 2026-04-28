@@ -1,3 +1,8 @@
+//
+//  PicoCalc SD Card driver for FAT32 formatted SD cards
+//  Copyright 2025-2026 Blair Leduc. See LICENSE for details.
+//
+
 #pragma once
 
 // FAT32 constants

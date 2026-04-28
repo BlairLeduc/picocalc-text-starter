@@ -1,5 +1,6 @@
 //
 //  PicoCalc LCD display driver
+//  Copyright 2025-2026 Blair Leduc. See LICENSE for details.
 //
 //  This driver implements a simple VT100 terminal interface for the PicoCalc LCD display
 //  using the ST7789P LCD controller.

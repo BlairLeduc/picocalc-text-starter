@@ -1,5 +1,6 @@
 //
 // Pico 2 (W) serial driver
+//  Copyright 2025-2026 Blair Leduc. See LICENSE for details.
 //
 // This driver implements a simple serial interface for the Clockwork PicoCalc using the
 // UART peripheral. It handles character reception and transmission,
@@ -8,8 +9,11 @@
 // and an interrupt handler to process incoming data.
 //
 
-#include "pico/stdlib.h"
-#include "pico/stdio/driver.h"
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "hardware/uart.h"
 #include "hardware/irq.h"

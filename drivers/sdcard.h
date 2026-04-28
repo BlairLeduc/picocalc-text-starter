@@ -1,3 +1,8 @@
+//
+//  PicoCalc SD Card driver for interacting with SD cards
+//  Copyright 2025-2026 Blair Leduc. See LICENSE for details.
+//
+
 #pragma once
 
 #include <stdint.h>

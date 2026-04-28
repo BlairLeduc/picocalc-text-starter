@@ -1,5 +1,6 @@
 //
 //  LED Driver for the Raspberry Pi Pico
+//  Copyright 2025-2026 Blair Leduc. See LICENSE for details.
 //
 //  This driver controls the onboard LED on the Raspberry Pi Pico and
 //  can also control the LED on the CYW43 Wi-Fi chip if needed.

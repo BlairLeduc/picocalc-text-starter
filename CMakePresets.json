@@ -1,0 +1,146 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 13,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "pico",
+            "displayName": "Raspberry Pi Pico",
+            "description": "Cross-compile for Raspberry Pi Pico (RP2040)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build-pico",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_MAKE_PROGRAM": "$env{HOME}/.pico-sdk/ninja/v1.12.1/ninja",
+                "PICO_BOARD": "pico"
+            }
+        },
+        {
+            "name": "pico-debug",
+            "inherits": "pico",
+            "displayName": "Raspberry Pi Pico (Debug)",
+            "description": "Cross-compile for Pico with debug symbols",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "picow",
+            "displayName": "Raspberry Pi Pico W",
+            "description": "Cross-compile for Raspberry Pi Pico W (RP2040)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build-picow",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_MAKE_PROGRAM": "$env{HOME}/.pico-sdk/ninja/v1.12.1/ninja",
+                "PICO_BOARD": "pico_w",
+                "HAS_WIFI": "ON"
+            }
+        },
+        {
+            "name": "picow-debug",
+            "inherits": "picow",
+            "displayName": "Raspberry Pi Pico W (Debug)",
+            "description": "Cross-compile for Pico W with debug symbols",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "pico2",
+            "displayName": "Raspberry Pi Pico 2",
+            "description": "Cross-compile for Raspberry Pi Pico 2 (RP2350)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build-pico2",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_MAKE_PROGRAM": "$env{HOME}/.pico-sdk/ninja/v1.12.1/ninja",
+                "PICO_BOARD": "pico2"
+            }
+        },
+        {
+            "name": "pico2-debug",
+            "inherits": "pico2",
+            "displayName": "Raspberry Pi Pico 2 (Debug)",
+            "description": "Cross-compile for Pico 2 with debug symbols",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "pico2w",
+            "displayName": "Raspberry Pi Pico 2W",
+            "description": "Cross-compile for Raspberry Pi Pico 2W (RP2350)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build-pico2w",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_MAKE_PROGRAM": "$env{HOME}/.pico-sdk/ninja/v1.12.1/ninja",
+                "PICO_BOARD": "pico2_w",
+                "HAS_WIFI": "ON"
+            }
+        },
+        {
+            "name": "pico2w-debug",
+            "inherits": "pico2w",
+            "displayName": "Raspberry Pi Pico 2W (Debug)",
+            "description": "Cross-compile for Pico 2W with debug symbols",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "pico+2w",
+            "displayName": "Pimoroni Pico Plus 2W",
+            "description": "Cross-compile for Pimoroni Pico Plus 2W (RP2350)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build-pico+2w",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_MAKE_PROGRAM": "$env{HOME}/.pico-sdk/ninja/v1.12.1/ninja",
+                "PICO_BOARD": "pimoroni_pico_plus2_w_rp2350",
+                "HAS_WIFI": "ON"
+            }
+        },
+        {
+            "name": "pico+2w-debug",
+            "inherits": "pico+2w",
+            "displayName": "Pimoroni Pico Plus 2W (Debug)",
+            "description": "Cross-compile for Pimoroni Pico Plus 2W with debug symbols",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "pico",
+            "configurePreset": "pico"
+        },
+        {
+            "name": "pico-debug",
+            "configurePreset": "pico-debug"
+        },
+        {
+            "name": "pico2",
+            "configurePreset": "pico2"
+        },
+        {
+            "name": "pico2-debug",
+            "configurePreset": "pico2-debug"
+        },
+        {
+            "name": "pico+2w",
+            "configurePreset": "pico+2w"
+        },
+        {
+            "name": "pico+2w-debug",
+            "configurePreset": "pico+2w-debug"
+        }
+    ],
+    "testPresets": [
+    ]
+}

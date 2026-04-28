@@ -1,5 +1,6 @@
 //
 //  PicoCalc SD Card driver for FAT32 formatted SD cards
+//  Copyright 2025-2026 Blair Leduc. See LICENSE for details.
 //
 //  This driver provides block-level access to SD cards and implements
 //  basic FAT32 file system operations for reading and writing files.

@@ -1,3 +1,8 @@
+//
+//  Main PicoCalc driver
+//  Copyright 2025-2026 Blair Leduc. See LICENSE for details.
+//
+
 #pragma once  
 
 #include "pico/stdlib.h"

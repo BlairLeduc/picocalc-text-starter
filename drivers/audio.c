@@ -1,5 +1,6 @@
 //
 //  PicoCalc Audio Driver
+//  Copyright 2025-2026 Blair Leduc. See LICENSE for details.
 //
 //  This driver implements a stereo PWM-based audio output for the PicoCalc.
 //  GPIO pins 26 & 27 are used for left and right channels respectively,

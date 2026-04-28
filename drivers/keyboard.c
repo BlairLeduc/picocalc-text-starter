@@ -1,5 +1,6 @@
 //
 //  PicoCalc keyboard driver
+//  Copyright 2025-2026 Blair Leduc. See LICENSE for details.
 //
 //  This driver implements a simple keyboard interface for the PicoCalc
 //  using the I2C bus. It handles key presses and releases, modifier keys,
