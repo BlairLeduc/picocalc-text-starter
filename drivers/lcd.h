@@ -18,6 +18,9 @@
 // According to the ST7789P datasheet, the maximum SPI clock speed is 62.5 MHz.
 // However, the controller can handle 75 MHz in practice.
 #define LCD_BAUDRATE    (75000000)      // 75 MHz SPI clock speed
+// Reads have to run much slower than writes; confirmed working on real
+// hardware at 1 MHz (not yet confirmed how much higher this could safely go).
+#define LCD_READ_BAUDRATE (1000000)     // 1 MHz SPI clock speed for reads
 #define LCD_I2C_TIMEOUT_US (1000)       // I2C timeout in microseconds
 
 // LCD command definitions
@@ -95,6 +98,7 @@ void lcd_write16_buf(const uint16_t *buffer, size_t len);
 
 // Display window and drawing functions
 void lcd_blit(const uint16_t *pixels, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
+void lcd_unblit(uint16_t *pixels, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
 void lcd_solid_rectangle(uint16_t colour, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
 
 // Scrolling functions

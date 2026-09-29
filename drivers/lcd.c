@@ -254,6 +254,82 @@ void lcd_blit(const uint16_t *pixels, uint16_t x, uint16_t y, uint16_t width, ui
     lcd_enable_interrupts();
 }
 
+// Select the target of the pixel data in the display RAM that a read (RAMRD)
+// will return next, leaving CSX low and D/CX set for the data phase so the
+// caller can read bytes immediately.
+//
+// Unlike lcd_set_window() above (used for writes), CSX must stay low across
+// the command byte AND every following read byte -- the ST7365P's read
+// sequence requires this, whereas a write's CSX may pulse high between
+// command/parameter bytes with no ill effect. That is why this cannot reuse
+// lcd_write_cmd() for the RAMRD command the way lcd_set_window() reuses it
+// for RAMWR.
+static void lcd_set_read_window(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
+{
+    // Set column address (X)
+    lcd_write_cmd(LCD_CMD_CASET);
+    lcd_write_data(4,
+                   UPPER8(x0), LOWER8(x0),
+                   UPPER8(x1), LOWER8(x1));
+
+    // Set row address (Y)
+    lcd_write_cmd(LCD_CMD_RASET);
+    lcd_write_data(4,
+                   UPPER8(y0), LOWER8(y0),
+                   UPPER8(y1), LOWER8(y1));
+
+    // Prepare to read from RAM; CSX stays low from here until the caller has
+    // read every byte it wants (see lcd_unblit())
+    gpio_put(LCD_DCX, 0); // Command
+    gpio_put(LCD_CSX, 0);
+    uint8_t cmd = LCD_CMD_RAMRD;
+    spi_write_blocking(LCD_SPI, &cmd, 1);
+    gpio_put(LCD_DCX, 1); // Data phase starts here
+}
+
+//
+//  Read pixel data back from the display
+//
+//  The read-side mirror of lcd_blit(): reads a width x height block of pixel
+//  data starting at (x, y) back out of the controller's frame memory via
+//  RAMRD (0x2E), in the same row-major RGB565 order lcd_blit() writes it in.
+//
+//  Two things the write side does not need to worry about: reads have to run
+//  much slower than writes (LCD_READ_BAUDRATE, restored to LCD_BAUDRATE once
+//  the read is done), and the very first byte clocked out after the RAMRD
+//  command is a dummy byte with no pixel data in it, which must be discarded
+//  before the real data starts.
+
+void lcd_unblit(uint16_t *pixels, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
+{
+    static uint8_t read_row[WIDTH * 2]; // one row of raw RGB565 bytes, big-endian
+
+    lcd_disable_interrupts();
+
+    spi_set_baudrate(LCD_SPI, LCD_READ_BAUDRATE);
+    lcd_set_read_window(x, y, x + width - 1, y + height - 1);
+
+    // Discard the dummy byte
+    uint8_t dummy;
+    spi_read_blocking(LCD_SPI, 0x00, &dummy, 1);
+
+    for (uint16_t row = 0; row < height; row++)
+    {
+        spi_read_blocking(LCD_SPI, 0x00, read_row, width * 2);
+
+        uint16_t *out = pixels + (size_t)row * width;
+        for (uint16_t col = 0; col < width; col++)
+        {
+            out[col] = (uint16_t)((read_row[col * 2] << 8) | read_row[col * 2 + 1]);
+        }
+    }
+
+    gpio_put(LCD_CSX, 1); // only now is it safe to send a new command
+    spi_set_baudrate(LCD_SPI, LCD_BAUDRATE);
+
+    lcd_enable_interrupts();
+}
+
 // Draw a solid rectangle on the display
 void lcd_solid_rectangle(uint16_t colour, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
 {
