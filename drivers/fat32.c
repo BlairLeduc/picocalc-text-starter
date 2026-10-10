@@ -1131,7 +1131,7 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
         for (uint32_t i = 0; i < FAT32_SECTOR_SIZE; i += 32)
         {
             fat32_dir_entry_t *entry_ptr = (fat32_dir_entry_t *)(sector_buffer + i);
-            if (entry_ptr->shortname[0] == FAT32_DIR_ENTRY_FREE || entry_ptr->shortname[0] == FAT32_DIR_ENTRY_END_MARKER)
+            if ((uint8_t)entry_ptr->shortname[0] == FAT32_DIR_ENTRY_FREE || entry_ptr->shortname[0] == FAT32_DIR_ENTRY_END_MARKER)
             {
                 if (free_count == 0)
                 {
@@ -1927,6 +1927,12 @@ fat32_error_t fat32_dir_read(fat32_file_t *dir, fat32_entry_t *dir_entry)
             // End of directory
             dir->last_entry_read = true; // Mark that we reached the end
         }
+        else if ((uint8_t)entry->shortname[0] == FAT32_DIR_ENTRY_FREE)
+        {
+            // Deleted entry (an 8.3 entry or a long file name part): skip it, and forget
+            // any long name collected so far, which belonged to something else
+            filename[0] = '\0';
+        }
         else if (entry->attr == FAT32_ATTR_LONG_NAME)
         {
             // Populate long filename buffer with this entry's name contents
@@ -1943,10 +1949,13 @@ fat32_error_t fat32_dir_read(fat32_file_t *dir, fat32_entry_t *dir_entry)
             {
                 // Copy this entry's part of the long filename into the filename buffer
                 int offset = ((lfn_entry->seq & 0x3F) - 1) * FAT32_DIR_LFN_PART_SIZE;
-                lfn_to_str(lfn_entry, filename + offset);
+                if (offset >= 0 && offset + FAT32_DIR_LFN_PART_SIZE <= FAT32_MAX_FILENAME_LEN)
+                {
+                    lfn_to_str(lfn_entry, filename + offset);
+                }
             }
         }
-        else if (entry->shortname[0] != FAT32_DIR_ENTRY_FREE)
+        else
         {
             uint8_t checksum = shortname_checksum(entry->shortname);
             // Now check to see if this is the entry we are looking for
