@@ -60,20 +60,22 @@ static void sd_spi_read_buf(uint8_t *dst, size_t len)
     spi_write_read_blocking(SD_SPI, dst, dst, len);
 }
 
+// A card that is busy (programming a block, for example) holds MISO low and ignores
+// commands. The SD specification allows a write up to 250 ms, so wait by the clock and
+// not by counting bytes: a count takes less real time at a faster SPI clock.
+#define SD_BUSY_TIMEOUT_US (500000)
+
 static bool sd_wait_ready(void)
 {
-    uint8_t response;
-    uint32_t timeout = 10000; // Add timeout to prevent infinite loop
+    uint64_t until = time_us_64() + SD_BUSY_TIMEOUT_US;
     do
     {
-        response = sd_spi_write_read(0xFF);
-        timeout--;
-        if (timeout == 0)
+        if (sd_spi_write_read(0xFF) == 0xFF)
         {
-            return false; // Timeout occurred
+            return true; // The card has let go of the line
         }
-    } while (response != 0xFF);
-    return true; // Success
+    } while (time_us_64() < until);
+    return false; // Timeout occurred
 }
 
 static uint8_t sd_send_command(uint8_t cmd, uint32_t arg)
@@ -101,8 +103,12 @@ static uint8_t sd_send_command(uint8_t cmd, uint32_t arg)
     }
     packet[5] = crc;
 
-    // Send command
+    // Send command (a busy card ignores it, and its low data line would read as an R1 of 0)
     sd_cs_select();
+    if (cmd != SD_CMD0)
+    {
+        sd_wait_ready();
+    }
     sd_spi_write_buf(packet, 6);
 
     // Wait for response (R1) - but with timeout
@@ -201,10 +207,10 @@ sd_error_t sd_write_block(uint32_t block, const uint8_t *buffer)
 
     // Wait for programming to finish
     sd_cs_select();
-    sd_wait_ready();
+    bool ready = sd_wait_ready();
     sd_cs_deselect();
 
-    return SD_OK;
+    return ready ? SD_OK : SD_ERROR_WRITE_FAILED;
 }
 
 sd_error_t sd_read_blocks(uint32_t start_block, uint32_t num_blocks, uint8_t *buffer)
