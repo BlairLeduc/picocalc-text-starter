@@ -90,6 +90,7 @@ target_link_libraries(picocalc-text-starter
 target_include_directories(picocalc-text-starter PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
 )
+MESSAGE( STATUS "cmake current list dir: ${CMAKE_CURRENT_LIST_DIR}" )
 
 # Add any user requested libraries
 target_link_libraries(picocalc-text-starter

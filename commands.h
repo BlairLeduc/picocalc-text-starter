@@ -31,6 +31,7 @@ void power_off(void);
 void power_off_set(const char *seconds);
 void reset();
 void reset_set(const char *seconds);
+void test_keys();
 
 
 // SD card commands

@@ -14,6 +14,7 @@
 #include "drivers/sdcard.h"
 #include "drivers/fat32.h"
 #include "drivers/lcd.h"
+#include "drivers/keyboard.h"
 #include "songs.h"
 #include "tests.h"
 #include "commands.h"
@@ -49,6 +50,7 @@ static const command_t commands[] = {
     {"tests", show_test_library, "Show test library"},
     {"width", width, "Set number of columns"},
     {"help", show_command_library, "Show this help message"},
+    {"keys", test_keys, "Test keys"},
     {NULL, NULL, NULL} // Sentinel to mark end of array
 };
 
@@ -969,4 +971,144 @@ void sd_mv_filename(const char *oldname, const char *newname)
     }
 
     printf("'%s' moved to '%s'.\n", oldname, newname);
+}
+
+const char* get_custom_key_name(unsigned char code) {
+    switch (code) {
+        case KEY_F1: return "F1";
+        case KEY_F2: return "F2";
+        case KEY_F3: return "F3";
+        case KEY_F4: return "F4";
+        case KEY_F5: return "F5";
+        case KEY_F6: return "F6";
+        case KEY_F7: return "F7";
+        case KEY_F8: return "F8";
+        case KEY_F9: return "F9";
+        case KEY_F10: return "F10";
+
+        case KEY_POWER: return "POWER";
+        case KEY_ESC: return "ESC";
+
+        case KEY_UP: return "UP";
+        case KEY_DOWN: return "DOWN";
+        case KEY_LEFT: return "LEFT";
+        case KEY_RIGHT: return "RIGHT";
+
+        case KEY_BREAK: return "BREAK";
+        case KEY_INSERT: return "INSERT";
+        case KEY_HOME: return "HOME";
+        case KEY_DEL: return "DEL";
+        case KEY_END: return "END";
+        case KEY_PAGE_UP: return "PgUP";
+        case KEY_PAGE_DOWN: return "PgDN";
+        case KEY_CAPS_LOCK: return "CAPS";
+
+        case KEY_BACKSPACE: return "BACKSPACE";
+        case KEY_TAB: return "TAB";
+        case KEY_RETURN: return "RETURN";
+        case KEY_ENTER: return "ENTER";
+        case KEY_SPACE: return "SPACE";
+        default: return NULL;
+    }
+}
+
+void test_keys()
+{
+    printf("Polling enabled (100ms interval). Press keys to see output.\n");
+    printf("Push Break twice in sequence to exit\n");
+    user_interrupt = false;
+    int count = 0;
+
+    while (true)
+    {
+
+        if (keyboard_key_available())
+        {
+            uint16_t event = keyboard_get_event();
+
+            printf("0x%02X | 0x%02X ", (event >> 8) & 0xff, event & 0xFF );
+
+            if ( event & KBD_MASK_CTL )
+            {
+                printf( "C");
+            }
+            else
+            {
+                printf( "-");
+            }
+
+            if ( event & KBD_MASK_ALT )
+            {
+                printf( "A");
+            }
+            else
+            {
+                printf( "-");
+            }
+
+            if ( event & KBD_MASK_SHL )
+            {
+                printf( "L");
+            }
+            else
+            {
+                printf( "-");
+            }
+
+            if ( event & KBD_MASK_SHR )
+            {
+                printf( "R");
+            }
+            else
+            {
+                printf( "-");
+            }
+
+            if ( event & KBD_MASK_SYM )
+            {
+                printf( "S");
+            }
+            else
+            {
+                printf( "-");
+            }
+
+            printf( " [KEY] ");
+            const char* custom_name = get_custom_key_name(event & 0xff);
+            if (custom_name)
+            {
+                printf("%s", custom_name);
+            }
+            else if ( ( event & 0xff ) >= 0x20 && ( event & 0xff ) <= 0x7E)
+            {
+                printf("%c", (event & 0xff) );
+            }
+            else
+            {
+                printf("Unknown Code");
+            }
+
+            printf("\n");
+           
+            if (user_interrupt)
+            {
+                count++;
+                if ( count > 1 )
+                {
+                    printf("\n*** USER INTERRUPT (KEY_BREAK x 2) DETECTED ***\n\n");
+                    break;
+                }
+                else
+                {
+                    user_interrupt = false;
+                }
+            }
+            else
+            {
+                count = 0;
+            }
+        }
+
+        sleep_ms(10);
+    }
 }

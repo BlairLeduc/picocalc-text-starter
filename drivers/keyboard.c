@@ -27,10 +27,12 @@ static bool keyboard_initialised = false; // flag to indicate if the keyboard is
 
 // Modifier key states
 static bool key_control = false; // control key state
-static bool key_shift = false;   // shift key state
+static bool key_left_shift = false;   // shift key state
+static bool key_right_shift = false;   // shift key state
 static bool key_alt = false;     // alt key state
+static bool key_sym = false;     // sym key state
 
-static volatile char rx_buffer[KBD_BUFFER_SIZE];
+static volatile uint16_t rx_buffer[KBD_BUFFER_SIZE];
 static volatile uint16_t rx_head = 0;
 static volatile uint16_t rx_tail = 0;
 static repeating_timer_t key_timer;
@@ -57,47 +59,68 @@ void keyboard_poll()
             {
                 key_control = true;
             }
-            else if (key_code == KEY_MOD_SHL || key_code == KEY_MOD_SHR)
+            else if (key_code == KEY_MOD_SHR)
             {
-                key_shift = true;
+                key_right_shift = true;
+            }
+            else if (key_code == KEY_MOD_SHL)
+            {
+                key_left_shift = true;
             }
             else if (key_code == KEY_MOD_ALT)
             {
                 key_alt = true;
             }
-            else if (key_code == KEY_BREAK)
+            else if (key_code == KEY_MOD_SYM)
             {
-                user_interrupt = true; // set user interrupt flag
-            }
-            else if (key_code == KEY_CAPS_LOCK)
-            {
-                // do nothing, processed in the south bridge
+                key_sym = true;
             }
             else
             {
                 // If a key is released, we return the key code
                 // This allows us to handle the key release in the main loop
                 uint8_t ch = key_code;
-                if (ch >= 'a' && ch <= 'z') // Ctrl and Shift handling
-                {
-                    if (key_control)
-                    {
-                        ch &= 0x1F; // convert to control character
-                    }
-                    if (key_shift)
-                    {
-                        ch &= ~0x20;
-                    }
-                }
-                else if (ch == KEY_ENTER) // enter key is returned as LF
+                if (ch == KEY_ENTER) // enter key is returned as LF
                 {
                     ch = KEY_RETURN; // convert LF to CR
                 }
 
                 uint16_t next_head = (rx_head + 1) & (KBD_BUFFER_SIZE - 1);
-                rx_buffer[rx_head] = ch;
+
+                uint16_t key = ch & 0xFF;
+
+                if  ( key_control )
+                {
+                    key |= KBD_MASK_CTL;
+                }
+
+                if  ( key_alt )
+                {
+                    key |= KBD_MASK_ALT;
+                }
+
+                if  ( key_left_shift )
+                {
+                    key |= KBD_MASK_SHL;
+                }
+
+                if  ( key_right_shift )
+                {
+                    key |= KBD_MASK_SHR;
+                }
+
+                if  ( key_sym )
+                {
+                    key |= KBD_MASK_SYM;
+                }
+
+                rx_buffer[rx_head] = key;
                 rx_head = next_head;
 
+                if (key_code == KEY_BREAK)
+                {
+                    user_interrupt = true; // set user interrupt flag
+                }
                 // Notify that characters are available
                 if (keyboard_key_available_callback)
                 {
@@ -111,9 +134,21 @@ void keyboard_poll()
             {
                 key_control = false;
             }
-            else if (key_code == KEY_MOD_SHL || key_code == KEY_MOD_SHR)
+            else if (key_code == KEY_MOD_ALT)
             {
-                key_shift = false;
+                key_alt = false;
+            }
+            else if (key_code == KEY_MOD_SHL)
+            {
+                key_left_shift = false;
+            }
+            else if (key_code == KEY_MOD_SHR)
+            {
+                key_right_shift = false;
+            }
+            else if (key_code == KEY_MOD_SYM)
+            {
+                key_sym = false;
             }
         }
     }
@@ -147,11 +182,35 @@ char keyboard_get_key()
         tight_loop_contents();
     }
 
-    char ch = rx_buffer[rx_tail];
+    uint16_t event = rx_buffer[rx_tail];
+    char ch = event & 0xff;
+
+    if (ch >= 'a' && ch <= 'z') // Ctrl and Shift handling
+    {
+        if ( event & KBD_MASK_CTL )
+        {
+            ch &= 0x1F; // convert to control character
+        }
+        if ( event & KBD_MASK_SHR || event & KBD_MASK_SHL)
+        {
+            ch &= ~0x20;
+        }
+    }
     rx_tail = (rx_tail + 1) & (KBD_BUFFER_SIZE - 1);
     return ch;
 }
 
+uint16_t keyboard_get_event()
+{
+    while (!keyboard_key_available())
+    {
+        tight_loop_contents();
+    }
+
+    uint16_t event = rx_buffer[rx_tail];
+    rx_tail = (rx_tail + 1) & (KBD_BUFFER_SIZE - 1);
+    return event;
+}
 
 //
 // Keyboard Callback Setters
