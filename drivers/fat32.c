@@ -430,6 +430,7 @@ fat32_error_t fat32_mount(void)
     }
 
     fat32_mounted = true;
+    mount_status = FAT32_OK;
     return FAT32_OK;
 }
 
