@@ -172,8 +172,8 @@ void audio_init(void)
 
     uint offset = pio_add_program(pio, &audio_pwm_program);
 
-    audio_pwm_program_init(pio, LEFT_CHANNEL, offset, 26);
-    audio_pwm_program_init(pio, RIGHT_CHANNEL, offset, 27);
+    audio_pwm_program_init(pio, LEFT_CHANNEL, offset, AUDIO_LEFT_PIN);
+    audio_pwm_program_init(pio, RIGHT_CHANNEL, offset, AUDIO_RIGHT_PIN);
 
     audio_initialised = true;
 }
