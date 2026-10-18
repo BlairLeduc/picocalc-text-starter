@@ -1,0 +1,11 @@
+--- a/drivers/fat32.c
++++ b/drivers/fat32.c
+@@ -1951,6 +1951,8 @@
+             {
+                 // Copy this entry's part of the long filename into the filename buffer
+                 int offset = ((lfn_entry->seq & 0x3F) - 1) * FAT32_DIR_LFN_PART_SIZE;
++                if (offset < 0 || offset + FAT32_DIR_LFN_PART_SIZE > FAT32_MAX_FILENAME_LEN + 1)
++                    fprintf(stderr, "  [instrumented] lfn_to_str would write 13 bytes at filename+%d (buffer is %d bytes), seq=%02X\n", offset, FAT32_MAX_FILENAME_LEN + 1, lfn_entry->seq);
+                 lfn_to_str(lfn_entry, filename + offset);
+             }
+         }
