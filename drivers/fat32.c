@@ -1336,6 +1336,7 @@ static fat32_error_t new_entry(fat32_file_t *file, const char *path, uint8_t att
     file->is_open = true;
     file->start_cluster = entry.start_cluster;
     file->current_cluster = file->start_cluster;
+    file->current_cluster_index = 0;
     file->attributes = entry.attr;
     file->dir_entry_sector = entry.sector;
     file->dir_entry_offset = entry.offset;
@@ -1420,6 +1421,7 @@ fat32_error_t fat32_open(fat32_file_t *file, const char *path)
     }
     file->is_open = true;
     file->current_cluster = file->start_cluster;
+    file->current_cluster_index = 0;
     file->position = 0;
     file->attributes = entry.attr;
     file->dir_entry_sector = entry.sector;
@@ -1476,11 +1478,24 @@ fat32_error_t fat32_read(fat32_file_t *file, void *buffer, size_t size, size_t *
         size = remaining;
     }
 
-    // Ensure current_cluster is correct for current file position
+    // Ensure current_cluster is correct for current file position.  Walk
+    // on from the cluster the last read ended in when that is at or before
+    // the position, so reading a file in order doesn't go back to its
+    // start every time.
     uint32_t cluster = 0;
     uint32_t cluster_offset = file->position / bytes_per_cluster;
-    RETURN_ON_ERROR(seek_to_cluster(file->start_cluster, cluster_offset, &cluster));
+    if (file->current_cluster_index != UINT32_MAX && file->current_cluster >= 2 &&
+        file->current_cluster_index <= cluster_offset)
+    {
+        RETURN_ON_ERROR(seek_to_cluster(file->current_cluster,
+                                        cluster_offset - file->current_cluster_index, &cluster));
+    }
+    else
+    {
+        RETURN_ON_ERROR(seek_to_cluster(file->start_cluster, cluster_offset, &cluster));
+    }
     file->current_cluster = cluster;
+    file->current_cluster_index = cluster_offset;
 
     size_t total_read = 0;
     uint8_t *dest = (uint8_t *)buffer;
@@ -1516,6 +1531,7 @@ fat32_error_t fat32_read(fat32_file_t *file, void *buffer, size_t size, size_t *
                 break;
             }
             file->current_cluster = next_cluster;
+            file->current_cluster_index++;
         }
     }
 
@@ -1567,6 +1583,7 @@ fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, s
         cluster = next_cluster;
     }
     file->current_cluster = cluster;
+    file->current_cluster_index = UINT32_MAX; // writes don't track it
 
     size_t total_written = 0;
     const uint8_t *src = (const uint8_t *)buffer;
@@ -1615,6 +1632,7 @@ fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, s
     cluster_offset = file->position / bytes_per_cluster;
     RETURN_ON_ERROR(seek_to_cluster(file->start_cluster, cluster_offset, &cluster));
     file->current_cluster = cluster;
+    file->current_cluster_index = UINT32_MAX; // writes don't track it
 
     size_t pos_in_file = file->position;
     while (total_written < size)
@@ -1650,6 +1668,7 @@ fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, s
             }
             cluster = next_cluster;
             file->current_cluster = cluster;
+            file->current_cluster_index = UINT32_MAX; // writes don't track it
         }
     }
 
@@ -2056,6 +2075,7 @@ fat32_error_t fat32_dir_read(fat32_file_t *dir, fat32_entry_t *dir_entry)
                 return FAT32_OK;             // No more entries to read
             }
             dir->current_cluster = next_cluster;
+            dir->current_cluster_index = UINT32_MAX; // directory reads don't keep it
         }
     }
 
