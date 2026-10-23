@@ -396,6 +396,59 @@ static void test_write_cost(void)
     verdict("cost of writing a growing file", last_reads < first_reads * 3 + 32, detail);
 }
 
+/* Reading a file in order, 16 KB at a time: each read should cost about its own 32
+ * sectors, not more the further into the file it is.  Also checks the data, and that
+ * a read after seeking backwards still gets the right bytes. */
+static void test_read_cost(void)
+{
+    static uint8_t block[16384];
+    fat32_file_t f;
+    size_t got;
+    unsigned i, pieces = 128;                   /* 2 MB */
+    unsigned long first_reads = 0, last_reads = 0, r;
+    int bad = 0;
+    char detail[200];
+
+    format_card();
+    if (fat32_create(&f, "big.bin") != FAT32_OK) {
+        verdict("cost of reading a file in order", 0, "cannot create");
+        return;
+    }
+    for (i = 0; i < pieces; i++) {
+        for (unsigned k = 0; k < sizeof block; k++)
+            block[k] = (uint8_t)((i * sizeof block + k) * 7 / 3);
+        if (fat32_write(&f, block, sizeof block, &got) != FAT32_OK || got != sizeof block)
+            break;
+    }
+    fat32_close(&f);
+    if (fat32_open(&f, "big.bin") != FAT32_OK) {
+        verdict("cost of reading a file in order", 0, "cannot open");
+        return;
+    }
+    for (i = 0; i < pieces && !bad; i++) {
+        r = sd_reads;
+        if (fat32_read(&f, block, sizeof block, &got) != FAT32_OK || got != sizeof block)
+            bad = 1;
+        if (i == 3) first_reads = sd_reads - r;
+        if (i == pieces - 1) last_reads = sd_reads - r;
+        for (unsigned k = 0; k < sizeof block && !bad; k++)
+            if (block[k] != (uint8_t)((i * sizeof block + k) * 7 / 3)) bad = 2;
+    }
+    /* back to 100 KB in, an odd place, then forward again */
+    uint32_t back[] = { 100000, 1500001, 4097, 0 };
+    for (unsigned b = 0; b < 4 && !bad; b++) {
+        fat32_seek(&f, back[b]);
+        if (fat32_read(&f, block, 5000, &got) != FAT32_OK || got != 5000) bad = 3;
+        for (unsigned k = 0; k < 5000 && !bad; k++)
+            if (block[k] != (uint8_t)((back[b] + k) * 7 / 3)) bad = 4;
+    }
+    fat32_close(&f);
+    sprintf(detail, "%s; one 16 KB read costs %lu sector reads at 64 KB in, %lu at 2 MB",
+            bad == 0 ? "data right" : bad == 1 ? "short read" : bad == 3 ? "short read after a seek"
+            : "wrong data", first_reads, last_reads);
+    verdict("cost of reading a file in order", !bad && last_reads < first_reads + 8, detail);
+}
+
 int main(int argc, char **argv)
 {
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -406,6 +459,7 @@ int main(int argc, char **argv)
     test_rename();
     test_listing_after_delete();
     test_write_cost();
+    test_read_cost();
     printf("\n%d test(s) failed\n", failures);
     return failures;
 }
