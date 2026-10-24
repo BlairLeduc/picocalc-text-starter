@@ -396,6 +396,150 @@ static void test_write_cost(void)
     verdict("cost of writing a growing file", last_reads < first_reads * 3 + 32, detail);
 }
 
+/* Reading a file in order, 16 KB at a time: each read should cost about its own 32
+ * sectors, not more the further into the file it is.  Also checks the data, and that
+ * a read after seeking backwards still gets the right bytes. */
+static void test_read_cost(void)
+{
+    static uint8_t block[16384];
+    fat32_file_t f;
+    size_t got;
+    unsigned i, pieces = 128;                   /* 2 MB */
+    unsigned long first_reads = 0, last_reads = 0, r;
+    int bad = 0;
+    char detail[200];
+
+    format_card();
+    if (fat32_create(&f, "big.bin") != FAT32_OK) {
+        verdict("cost of reading a file in order", 0, "cannot create");
+        return;
+    }
+    for (i = 0; i < pieces; i++) {
+        for (unsigned k = 0; k < sizeof block; k++)
+            block[k] = (uint8_t)((i * sizeof block + k) * 7 / 3);
+        if (fat32_write(&f, block, sizeof block, &got) != FAT32_OK || got != sizeof block)
+            break;
+    }
+    fat32_close(&f);
+    if (fat32_open(&f, "big.bin") != FAT32_OK) {
+        verdict("cost of reading a file in order", 0, "cannot open");
+        return;
+    }
+    for (i = 0; i < pieces && !bad; i++) {
+        r = sd_reads;
+        if (fat32_read(&f, block, sizeof block, &got) != FAT32_OK || got != sizeof block)
+            bad = 1;
+        if (i == 3) first_reads = sd_reads - r;
+        if (i == pieces - 1) last_reads = sd_reads - r;
+        for (unsigned k = 0; k < sizeof block && !bad; k++)
+            if (block[k] != (uint8_t)((i * sizeof block + k) * 7 / 3)) bad = 2;
+    }
+    /* back to 100 KB in, an odd place, then forward again */
+    uint32_t back[] = { 100000, 1500001, 4097, 0 };
+    for (unsigned b = 0; b < 4 && !bad; b++) {
+        fat32_seek(&f, back[b]);
+        if (fat32_read(&f, block, 5000, &got) != FAT32_OK || got != 5000) bad = 3;
+        for (unsigned k = 0; k < 5000 && !bad; k++)
+            if (block[k] != (uint8_t)((back[b] + k) * 7 / 3)) bad = 4;
+    }
+    fat32_close(&f);
+    sprintf(detail, "%s; one 16 KB read costs %lu sector reads at 64 KB in, %lu at 2 MB",
+            bad == 0 ? "data right" : bad == 1 ? "short read" : bad == 3 ? "short read after a seek"
+            : "wrong data", first_reads, last_reads);
+    verdict("cost of reading a file in order", !bad && last_reads < first_reads + 8, detail);
+}
+
+/* Writing a file in pieces exactly one cluster long: each write that starts
+ * at the end of the last cluster needs a new one.  Afterwards, deleting the
+ * file should give back all the space it took. */
+static void test_append_clusters(void)
+{
+    static uint8_t block[SECTORS_PER_CLUS * 512];
+    fat32_file_t f;
+    size_t got;
+    unsigned pieces = 16, i;
+    uint64_t before = 0, during = 0, after = 0;
+    char detail[200];
+
+    format_card();
+    fat32_get_free_space(&before);
+    if (fat32_create(&f, "append.bin") != FAT32_OK) {
+        verdict("space after writing whole clusters", 0, "cannot create");
+        return;
+    }
+    for (i = 0; i < pieces; i++) {
+        memset(block, (int)i, sizeof block);
+        if (fat32_write(&f, block, sizeof block, &got) != FAT32_OK || got != sizeof block) break;
+    }
+    fat32_close(&f);
+    fat32_get_free_space(&during);
+    fat32_delete("append.bin");
+    fat32_get_free_space(&after);
+    unsigned long used = (unsigned long)((before - during) / sizeof block);
+    unsigned long lost = (unsigned long)((before - after) / sizeof block);
+    snprintf(detail, sizeof detail, "%u clusters written, %lu taken, %lu not given back by delete",
+             i, used, lost);
+    verdict("space after writing whole clusters", i == pieces && used == pieces && lost == 0, detail);
+}
+
+/* Random writes, overwrites, seeks and reads on one file, checked against a
+ * copy of what it should hold; then the space must all come back. */
+static void test_random_io(void)
+{
+    enum { MAX = 300 * 1024 };
+    static uint8_t model[MAX], buf[20000], back[20000];
+    fat32_file_t f;
+    size_t got, size = 0;
+    unsigned seed = 12345, ops = 0, bad = 0;
+    uint64_t before = 0, after = 0;
+    char detail[200];
+    #define RND() (seed = seed * 1103515245u + 12345u, (seed >> 8))
+
+    format_card();
+    fat32_get_free_space(&before);
+    if (fat32_create(&f, "random.bin") != FAT32_OK) {
+        verdict("random writes, seeks and reads", 0, "cannot create");
+        return;
+    }
+    for (ops = 0; ops < 3000 && !bad; ops++) {
+        unsigned kind = RND() % 4;
+        size_t pos = size ? RND() % (size + 1) : 0;
+        unsigned big = RND() % 4 == 0;
+        size_t n = 1 + RND() % (big ? 20000 : 600);
+        if (kind == 0) pos = size;                          /* append */
+        if (pos + n > MAX) n = MAX - pos;
+        if (n == 0) continue;
+        if (fat32_seek(&f, (uint32_t)pos) != FAT32_OK) { bad = 1; break; }
+        if (kind < 3) {                                     /* write */
+            for (size_t k = 0; k < n; k++) buf[k] = (uint8_t)RND();
+            if (fat32_write(&f, buf, n, &got) != FAT32_OK || got != n) { bad = 2; break; }
+            memcpy(model + pos, buf, n);
+            if (pos + n > size) size = pos + n;
+        } else {                                            /* read */
+            size_t want = pos + n > size ? size - pos : n;
+            if (fat32_read(&f, back, n, &got) != FAT32_OK || got != want ||
+                memcmp(back, model + pos, got)) { bad = 3; break; }
+        }
+    }
+    fat32_close(&f);
+    /* read the whole file back, fresh */
+    if (!bad && fat32_open(&f, "random.bin") == FAT32_OK) {
+        if (fat32_size(&f) != size) bad = 4;
+        for (size_t at = 0; !bad && at < size; at += got) {
+            if (fat32_read(&f, back, sizeof back, &got) != FAT32_OK || got == 0 ||
+                memcmp(back, model + at, got)) bad = 5;
+        }
+        fat32_close(&f);
+    }
+    fat32_delete("random.bin");
+    fat32_get_free_space(&after);
+    snprintf(detail, sizeof detail, "%u operations, file %lu bytes, %s; %lu bytes not given back",
+             ops, (unsigned long)size, bad ? "WRONG DATA or error" : "data right",
+             (unsigned long)(before - after));
+    verdict("random writes, seeks and reads", !bad && before == after, detail);
+    #undef RND
+}
+
 int main(int argc, char **argv)
 {
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -406,6 +550,9 @@ int main(int argc, char **argv)
     test_rename();
     test_listing_after_delete();
     test_write_cost();
+    test_read_cost();
+    test_append_clusters();
+    test_random_io();
     printf("\n%d test(s) failed\n", failures);
     return failures;
 }
