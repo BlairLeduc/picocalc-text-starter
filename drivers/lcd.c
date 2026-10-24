@@ -528,9 +528,20 @@ void lcd_putc(uint8_t column, uint8_t row, uint8_t c)
 // Draw a string at the specified position
 void lcd_putstr(uint8_t column, uint8_t row, const char *str)
 {
+    // Only what fits on the row is drawn: line_buffer is one screen wide,
+    // so a longer string would run past its end
+    int columns = WIDTH / font->width;
+    if (column >= columns)
+    {
+        return;
+    }
     int len = strlen(str);
+    if (len > columns - column)
+    {
+        len = columns - column;
+    }
     int pos = 0;
-    while (*str)
+    while (pos < len)
     {
         uint16_t *buffer = line_buffer + (pos++ * font->width);
         const uint8_t *glyph = &font->glyphs[*str++ * GLYPH_HEIGHT];
