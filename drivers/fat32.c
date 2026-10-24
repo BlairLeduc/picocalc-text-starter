@@ -59,6 +59,33 @@ static uint32_t current_dir_cluster = 0; // Current directory cluster
 
 // Working buffers
 static uint8_t sector_buffer[FAT32_SECTOR_SIZE] __attribute__((aligned(4)));
+
+// The program's clock, for file dates (NULL: none)
+static fat32_time_source_t time_source = NULL;
+
+void fat32_set_time_source(fat32_time_source_t source)
+{
+    time_source = source;
+}
+
+void fat32_pack_time(int year, int month, int day, int hour, int minute, int second,
+                     uint16_t *date, uint16_t *time)
+{
+    *date = (uint16_t)(((year - 1980) & 0x7F) << 9 | (month & 0x0F) << 5 | (day & 0x1F));
+    *time = (uint16_t)((hour & 0x1F) << 11 | (minute & 0x3F) << 5 | ((second / 2) & 0x1F));
+}
+
+// The date and time now, or false (and both 0) if the program hasn't said
+static bool time_now(uint16_t *date, uint16_t *time)
+{
+    if (time_source && time_source(date, time))
+    {
+        return true;
+    }
+    *date = 0;
+    *time = 0;
+    return false;
+}
 static fat32_lfn_entry_t lfn_buffer[MAX_LFN_PART]; // Buffer for long file name entries
 
 // Timer for SD card detection
@@ -1241,18 +1268,25 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
         }
     }
 
+    // A new entry is dated now; a renamed one keeps the date it had
+    uint16_t date = entry->date, time = entry->time;
+    if (date == 0)
+    {
+        time_now(&date, &time);
+    }
+
     // Write 8.3 entry
     fat32_dir_entry_t dir_entry = {0};
     memcpy(dir_entry.shortname, shortname, 11);
     dir_entry.attr = entry->attr; // Normal file
     dir_entry.nt_res = 0;
     dir_entry.crt_time_tenth = 0;
-    dir_entry.crt_time = 0;
-    dir_entry.crt_date = 0;
-    dir_entry.lst_acc_date = 0;
+    dir_entry.crt_time = time;
+    dir_entry.crt_date = date;
+    dir_entry.lst_acc_date = date;
     dir_entry.fst_clus_hi = entry->start_cluster >> 16;
-    dir_entry.wrt_time = 0;
-    dir_entry.wrt_date = 0;
+    dir_entry.wrt_time = time;
+    dir_entry.wrt_date = date;
     dir_entry.fst_clus_lo = entry->start_cluster & 0xFFFF;
     dir_entry.file_size = entry->size;
 
@@ -1657,6 +1691,13 @@ fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, s
 
         fat32_dir_entry_t *dir_entry = (fat32_dir_entry_t *)(sector_buffer + file->dir_entry_offset);
         dir_entry->file_size = file->file_size;
+        uint16_t date, time;
+        if (time_now(&date, &time))
+        {
+            dir_entry->wrt_date = date;
+            dir_entry->wrt_time = time;
+            dir_entry->lst_acc_date = date;
+        }
 
         RETURN_ON_ERROR(write_sector(file->dir_entry_sector, sector_buffer));
     }
@@ -2055,6 +2096,10 @@ fat32_error_t fat32_dir_create(fat32_file_t *dir, const char *path)
     dot_entry.fst_clus_hi = (dir->start_cluster >> 16) & 0xFFFF;
     dot_entry.fst_clus_lo = dir->start_cluster & 0xFFFF;
     dot_entry.file_size = 0;
+    uint16_t date, time;
+    time_now(&date, &time);
+    dot_entry.wrt_date = dot_entry.crt_date = dot_entry.lst_acc_date = date;
+    dot_entry.wrt_time = dot_entry.crt_time = time;
 
     // Create ".." entry (parent directory)
     fat32_dir_entry_t dotdot_entry = {0};
@@ -2074,6 +2119,8 @@ fat32_error_t fat32_dir_create(fat32_file_t *dir, const char *path)
         dotdot_entry.fst_clus_lo = parent_cluster & 0xFFFF;
     }
     dotdot_entry.file_size = 0;
+    dotdot_entry.wrt_date = dotdot_entry.crt_date = dotdot_entry.lst_acc_date = date;
+    dotdot_entry.wrt_time = dotdot_entry.crt_time = time;
 
     // Write both entries to the first sector of the directory
     RETURN_ON_ERROR(read_sector(cluster_to_sector(dir->start_cluster), sector_buffer));
