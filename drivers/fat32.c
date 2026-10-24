@@ -315,18 +315,6 @@ static fat32_error_t release_cluster_chain(uint32_t start_cluster)
     return FAT32_OK;
 }
 
-static fat32_error_t find_last_cluster(uint32_t start_cluster, uint32_t count, uint32_t *last_cluster)
-{
-    *last_cluster = start_cluster;
-    for (uint32_t i = 1; i < count; i++)
-    {
-        uint32_t next_cluster;
-        RETURN_ON_ERROR(read_cluster_fat_entry(*last_cluster, &next_cluster));
-        *last_cluster = next_cluster;
-    }
-    return FAT32_OK;
-}
-
 static fat32_error_t allocate_and_link_cluster(uint32_t last_cluster, uint32_t *new_cluster)
 {
     RETURN_ON_ERROR(get_next_free_cluster(new_cluster));
@@ -1566,74 +1554,67 @@ fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, s
 
     uint32_t old_file_size = file->file_size;
 
-    // Ensure current_cluster is correct for current file position
-    uint32_t cluster = file->start_cluster;
+    if (size == 0)
+    {
+        return FAT32_OK;
+    }
+
+    // An empty file may have no cluster yet: give it its first
+    if (file->start_cluster < 2)
+    {
+        uint32_t first = 0;
+        RETURN_ON_ERROR(get_next_free_cluster(&first));
+        RETURN_ON_ERROR(write_cluster_fat_entry(first, FAT32_FAT_ENTRY_EOC));
+        if (fsinfo.free_count != 0xFFFFFFFF)
+        {
+            fsinfo.free_count--;
+            update_fsinfo();
+        }
+        file->start_cluster = first;
+        file->current_cluster = first;
+        file->current_cluster_index = 0;
+    }
+
+    // Find the cluster for the current position: from the cluster the last
+    // read or write ended in when that is at or before it, otherwise from
+    // the start.  Clusters missing before the position are added on the way.
     uint32_t cluster_offset = file->position / bytes_per_cluster;
-    for (uint32_t i = 0; i < cluster_offset; i++)
+    uint32_t cluster = file->start_cluster, index = 0;
+    if (file->current_cluster_index != UINT32_MAX && file->current_cluster >= 2 &&
+        file->current_cluster_index <= cluster_offset)
+    {
+        cluster = file->current_cluster;
+        index = file->current_cluster_index;
+    }
+    for (; index < cluster_offset; index++)
     {
         uint32_t next_cluster;
         RETURN_ON_ERROR(read_cluster_fat_entry(cluster, &next_cluster));
         if (next_cluster >= FAT32_FAT_ENTRY_EOC)
         {
-            // Allocate a new cluster and link it
-            uint32_t new_cluster = 0;
-            RETURN_ON_ERROR(allocate_and_link_cluster(cluster, &new_cluster));
-            next_cluster = new_cluster;
+            RETURN_ON_ERROR(allocate_and_link_cluster(cluster, &next_cluster));
         }
         cluster = next_cluster;
     }
-    file->current_cluster = cluster;
-    file->current_cluster_index = UINT32_MAX; // writes don't track it
+
+    // Make sure the chain reaches the end of this write: walk on from here
+    // to its last cluster, then add what is missing to that one
+    uint32_t last_index = (file->position + size - 1) / bytes_per_cluster;
+    uint32_t chain_end = cluster, chain_index = index;
+    while (chain_index < last_index)
+    {
+        uint32_t next_cluster;
+        RETURN_ON_ERROR(read_cluster_fat_entry(chain_end, &next_cluster));
+        if (next_cluster >= FAT32_FAT_ENTRY_EOC)
+        {
+            RETURN_ON_ERROR(allocate_and_link_cluster(chain_end, &next_cluster));
+        }
+        chain_end = next_cluster;
+        chain_index++;
+    }
 
     size_t total_written = 0;
     const uint8_t *src = (const uint8_t *)buffer;
-
-    // Calculate how many clusters are needed for the write
-    uint32_t end_pos = file->position + size;
-    uint32_t needed_clusters = (end_pos + bytes_per_cluster - 1) / bytes_per_cluster;
-    uint32_t current_clusters = file->file_size == 0 ? 1 : (file->file_size + bytes_per_cluster - 1) / bytes_per_cluster;
-
-    // Find last cluster in chain
-    cluster = file->start_cluster;
-    uint32_t last_cluster = cluster;
-    if (current_clusters > 0)
-    {
-        RETURN_ON_ERROR(find_last_cluster(cluster, current_clusters, &last_cluster));
-    }
-
-    // Allocate clusters if needed
-    for (uint32_t i = current_clusters; i < needed_clusters; i++)
-    {
-        uint32_t new_cluster = 0;
-
-        if (current_clusters > 0 || i > 0)
-        {
-            RETURN_ON_ERROR(allocate_and_link_cluster(last_cluster, &new_cluster));
-        }
-        else
-        {
-            // First cluster for empty file
-            RETURN_ON_ERROR(get_next_free_cluster(&new_cluster));
-            RETURN_ON_ERROR(write_cluster_fat_entry(new_cluster, FAT32_FAT_ENTRY_EOC));
-
-            if (fsinfo.free_count != 0xFFFFFFFF)
-            {
-                fsinfo.free_count--;
-                update_fsinfo();
-            }
-
-            file->start_cluster = new_cluster;
-        }
-        last_cluster = new_cluster;
-    }
-
-    // Find cluster for file->position
-    cluster = 0;
-    cluster_offset = file->position / bytes_per_cluster;
-    RETURN_ON_ERROR(seek_to_cluster(file->start_cluster, cluster_offset, &cluster));
-    file->current_cluster = cluster;
-    file->current_cluster_index = UINT32_MAX; // writes don't track it
-
     size_t pos_in_file = file->position;
     while (total_written < size)
     {
@@ -1642,16 +1623,18 @@ fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, s
         uint32_t byte_in_sector = offset_in_cluster % FAT32_SECTOR_SIZE;
         uint32_t sector = cluster_to_sector(cluster) + sector_in_cluster;
 
-        RETURN_ON_ERROR(read_sector(sector, sector_buffer));
-
         size_t bytes_to_write = FAT32_SECTOR_SIZE - byte_in_sector;
         if (bytes_to_write > size - total_written)
         {
             bytes_to_write = size - total_written;
         }
 
+        // a whole sector replaces what was there, so needn't be read first
+        if (bytes_to_write < FAT32_SECTOR_SIZE)
+        {
+            RETURN_ON_ERROR(read_sector(sector, sector_buffer));
+        }
         memcpy(sector_buffer + byte_in_sector, src + total_written, bytes_to_write);
-
         RETURN_ON_ERROR(write_sector(sector, sector_buffer));
 
         total_written += bytes_to_write;
@@ -1664,13 +1647,15 @@ fat32_error_t fat32_write(fat32_file_t *file, const void *buffer, size_t size, s
             fat32_error_t fat_res = read_cluster_fat_entry(cluster, &next_cluster);
             if (fat_res != FAT32_OK || next_cluster >= FAT32_FAT_ENTRY_EOC)
             {
+                file->current_cluster_index = UINT32_MAX;
                 return FAT32_ERROR_DISK_FULL;
             }
             cluster = next_cluster;
-            file->current_cluster = cluster;
-            file->current_cluster_index = UINT32_MAX; // writes don't track it
+            index++;
         }
     }
+    file->current_cluster = cluster;
+    file->current_cluster_index = index;
 
     file->position = pos_in_file;
     if (file->position > file->file_size)
