@@ -77,6 +77,10 @@ typedef struct
     uint8_t attr;
     uint32_t sector;
     uint32_t offset;
+    uint32_t lfn_sector; // where its long name starts (lfn_count entries before the 8.3 one)
+    uint32_t lfn_offset;
+    uint8_t lfn_count;   // 0: no long name
+    char shortname[11];  // its 8.3 name as stored, space-padded
 } fat32_entry_t;
 
 // Partition entry structure
