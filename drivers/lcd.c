@@ -530,7 +530,7 @@ void lcd_putstr(uint8_t column, uint8_t row, const char *str)
 {
     // Only what fits on the row is drawn: line_buffer is one screen wide,
     // so a longer string would run past its end
-    int columns = WIDTH / font->width;
+    int columns = lcd_get_columns();
     if (column >= columns)
     {
         return;
