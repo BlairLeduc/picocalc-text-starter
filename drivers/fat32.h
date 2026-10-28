@@ -196,6 +196,43 @@ fat32_error_t fat32_get_current_dir(char *path, size_t path_len);
 fat32_error_t fat32_dir_read(fat32_file_t *dir, fat32_entry_t *entry);
 fat32_error_t fat32_dir_create(fat32_file_t *dir, const char *path);
 
+// File dates
+//
+// The PicoCalc has no clock of its own, so the program supplies the time:
+// a function that fills in a FAT date and time (local time; fat32_pack_time()
+// makes them) and returns true, or returns false when it doesn't know the
+// time. With one set, a file is stamped when it is created and each time it
+// is written, and a new folder when it is made; a renamed file keeps its
+// date. Without one, or while it returns false, dates are left as 0, as
+// before. The function is called while a file is being written, so it must
+// not call the fat32 functions itself.
+//
+// On a PicoCalc started from the shell (v1.1 or later), picocalc_shell.h
+// gives the time as UTC and an offset:
+//
+//     static bool shell_clock(uint16_t *date, uint16_t *time)
+//     {
+//         int64_t utc_ms;
+//         int offset_min;
+//         if (!picocalc_shell_time(&utc_ms, &offset_min))
+//             return false;
+//         time_t t = (time_t)(utc_ms / 1000) + offset_min * 60;
+//         struct tm tm;
+//         gmtime_r(&t, &tm);
+//         return fat32_pack_time(tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+//                                tm.tm_hour, tm.tm_min, tm.tm_sec, date, time);
+//     }
+//     ...
+//     fat32_set_time_source(shell_clock);
+typedef bool (*fat32_time_source_t)(uint16_t *date, uint16_t *time);
+void fat32_set_time_source(fat32_time_source_t source);
+
+// A FAT date and time: year 1980-2107, month 1-12, day 1-31, hour 0-23,
+// minute 0-59, second 0-59 (FAT keeps it to two seconds). Returns false,
+// and leaves both alone, if any is out of range.
+bool fat32_pack_time(int year, int month, int day, int hour, int minute, int second,
+                     uint16_t *date, uint16_t *time);
+
 // Utility functions
 const char *fat32_error_string(fat32_error_t error);
 
