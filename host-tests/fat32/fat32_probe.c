@@ -397,31 +397,34 @@ static void test_write_cost(void)
 }
 
 /* File dates: none without a time source; with one, a file is dated when made and
- * when written, a renamed file keeps its date, a new folder is dated, and a source
- * that doesn't know the time leaves dates alone. */
-static int clock_day = 24, clock_known = 1;
+ * when written, a renamed file keeps all its dates (or none), a new folder is dated,
+ * and a source that doesn't know the time, or gives one FAT can't hold, leaves dates
+ * alone. */
+static int clock_year = 2026, clock_day = 24, clock_known = 1;
 
 static bool test_clock(uint16_t *date, uint16_t *time)
 {
     if (!clock_known)
         return false;
-    fat32_pack_time(2026, 10, clock_day, 15, 30, 42, date, time);
-    return true;
+    return fat32_pack_time(clock_year, 10, clock_day, 15, 30, 42, date, time);
 }
 
-/* The date and time fat32_dir_read() gives for name in "/", or 0xFFFF if it isn't there. */
-static void entry_date(const char *name, unsigned *date, unsigned *time)
+/* The date and time fat32_dir_read() gives for name in "/", and the creation date
+ * from the entry on the card; all 0xFFFF if it isn't there. */
+static void entry_date(const char *name, unsigned *date, unsigned *time, unsigned *created)
 {
     fat32_file_t d;
     fat32_entry_t e;
 
-    *date = *time = 0xFFFFu;
+    *date = *time = *created = 0xFFFFu;
     if (fat32_open(&d, "/") != FAT32_OK)
         return;
     while (fat32_dir_read(&d, &e) == FAT32_OK && e.filename[0])
         if (!strcmp(e.filename, name)) {
+            const uint8_t *raw = card + (size_t)e.sector * 512u + e.offset;
             *date = e.date;
             *time = e.time;
+            *created = raw[16] | raw[17] << 8;
         }
     fat32_close(&d);
 }
@@ -429,7 +432,7 @@ static void entry_date(const char *name, unsigned *date, unsigned *time)
 static void test_dates(void)
 {
     char detail[300];
-    unsigned date, time, d24, d25, t;
+    unsigned date, time, created, d24, d25, t;
     uint16_t pd, pt;
     int bad = 0;
     fat32_file_t f, dir;
@@ -440,22 +443,39 @@ static void test_dates(void)
     t = pt;
     fat32_pack_time(2026, 10, 25, 15, 30, 42, &pd, &pt);
     d25 = pd;
+    if (fat32_pack_time(1979, 12, 31, 23, 59, 58, &pd, &pt) ||
+        fat32_pack_time(2108, 1, 1, 0, 0, 0, &pd, &pt) ||
+        fat32_pack_time(2026, 13, 1, 0, 0, 0, &pd, &pt) ||
+        fat32_pack_time(2026, 1, 1, 24, 0, 0, &pd, &pt)) {
+        bad = 1;
+        strcpy(detail, "fat32_pack_time() takes a time FAT can't hold");
+    }
     format_card();
 
     fat32_set_time_source(NULL);
+    clock_year = 2026;
+    clock_day = 24;
+    clock_known = 1;
     make_file("old.txt", 100u, 1);
-    entry_date("old.txt", &date, &time);
-    if (date != 0 || time != 0) {
+    entry_date("old.txt", &date, &time, &created);
+    if (!bad && (date != 0 || time != 0)) {
         bad = 1;
         sprintf(detail, "with no time source, a new file is dated %04x %04x, not 0", date, time);
     }
 
     fat32_set_time_source(test_clock);
-    clock_day = 24;
-    clock_known = 1;
+    if (!bad) {
+        if (fat32_rename("old.txt", "Old-Renamed.txt") != FAT32_OK)
+            bad = 1, strcpy(detail, "can't rename the undated file");
+        entry_date("Old-Renamed.txt", &date, &time, &created);
+        if (!bad && (date != 0 || created != 0)) {
+            bad = 1;
+            sprintf(detail, "renamed, an undated file is dated %04x (made %04x), not 0", date, created);
+        }
+    }
     if (!bad) {
         make_file("Dated-Long-Name.txt", 100u, 2);
-        entry_date("Dated-Long-Name.txt", &date, &time);
+        entry_date("Dated-Long-Name.txt", &date, &time, &created);
         if (date != d24 || time != t) {
             bad = 1;
             sprintf(detail, "a new file is dated %04x %04x, expected %04x %04x", date, time, d24, t);
@@ -467,7 +487,7 @@ static void test_dates(void)
             fat32_write(&f, "more", 4, &put) != FAT32_OK)
             bad = 1, strcpy(detail, "can't add to the file");
         fat32_close(&f);
-        entry_date("Dated-Long-Name.txt", &date, &time);
+        entry_date("Dated-Long-Name.txt", &date, &time, &created);
         if (!bad && date != d25) {
             bad = 1;
             sprintf(detail, "after a write next day the file is dated %04x, expected %04x", date, d25);
@@ -477,10 +497,14 @@ static void test_dates(void)
         clock_day = 26;
         if (fat32_rename("Dated-Long-Name.txt", "Renamed.txt") != FAT32_OK)
             bad = 1, strcpy(detail, "can't rename it");
-        entry_date("Renamed.txt", &date, &time);
+        entry_date("Renamed.txt", &date, &time, &created);
         if (!bad && date != d25) {
             bad = 1;
             sprintf(detail, "renamed, the file is dated %04x, expected to keep %04x", date, d25);
+        }
+        if (!bad && created != d24) {
+            bad = 1;
+            sprintf(detail, "renamed, the file was made %04x, expected to keep %04x", created, d24);
         }
     }
     if (!bad) {
@@ -488,7 +512,7 @@ static void test_dates(void)
         if (fat32_dir_create(&dir, "/Folder") != FAT32_OK)
             bad = 1, strcpy(detail, "can't make a folder");
         fat32_close(&dir);
-        entry_date("Folder", &date, &time);
+        entry_date("Folder", &date, &time, &created);
         if (!bad && date != d24) {
             bad = 1;
             sprintf(detail, "a new folder is dated %04x, expected %04x", date, d24);
@@ -499,15 +523,27 @@ static void test_dates(void)
         if (fat32_open(&f, "Renamed.txt") != FAT32_OK || fat32_write(&f, "x", 1, &put) != FAT32_OK)
             bad = 1, strcpy(detail, "can't write to the renamed file");
         fat32_close(&f);
-        entry_date("Renamed.txt", &date, &time);
+        entry_date("Renamed.txt", &date, &time, &created);
         if (!bad && date != d25) {
             bad = 1;
             sprintf(detail, "with the time unknown, a write changed the date to %04x", date);
         }
     }
+    if (!bad) {
+        clock_known = 1;
+        clock_year = 1979;
+        if (fat32_open(&f, "Renamed.txt") != FAT32_OK || fat32_write(&f, "y", 1, &put) != FAT32_OK)
+            bad = 1, strcpy(detail, "can't write to the renamed file");
+        fat32_close(&f);
+        entry_date("Renamed.txt", &date, &time, &created);
+        if (!bad && date != d25) {
+            bad = 1;
+            sprintf(detail, "with the clock in 1979, a write changed the date to %04x", date);
+        }
+    }
     fat32_set_time_source(NULL);
     if (!bad)
-        strcpy(detail, "none without a clock; made, written, renamed, folder, clock unknown");
+        strcpy(detail, "none without a clock; made, written, renamed, folder, clock unknown or out of range");
     verdict("file dates", !bad, detail);
 }
 

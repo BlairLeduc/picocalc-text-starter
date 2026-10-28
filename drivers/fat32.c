@@ -59,6 +59,7 @@ static uint32_t current_dir_cluster = 0; // Current directory cluster
 
 // Working buffers
 static uint8_t sector_buffer[FAT32_SECTOR_SIZE] __attribute__((aligned(4)));
+static fat32_lfn_entry_t lfn_buffer[MAX_LFN_PART]; // Buffer for long file name entries
 
 // The program's clock, for file dates (NULL: none)
 static fat32_time_source_t time_source = NULL;
@@ -68,11 +69,17 @@ void fat32_set_time_source(fat32_time_source_t source)
     time_source = source;
 }
 
-void fat32_pack_time(int year, int month, int day, int hour, int minute, int second,
+bool fat32_pack_time(int year, int month, int day, int hour, int minute, int second,
                      uint16_t *date, uint16_t *time)
 {
-    *date = (uint16_t)(((year - 1980) & 0x7F) << 9 | (month & 0x0F) << 5 | (day & 0x1F));
-    *time = (uint16_t)((hour & 0x1F) << 11 | (minute & 0x3F) << 5 | ((second / 2) & 0x1F));
+    if (year < 1980 || year > 2107 || month < 1 || month > 12 || day < 1 || day > 31 ||
+        hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59)
+    {
+        return false;
+    }
+    *date = (uint16_t)((year - 1980) << 9 | month << 5 | day);
+    *time = (uint16_t)(hour << 11 | minute << 5 | second / 2);
+    return true;
 }
 
 // The date and time now, or false (and both 0) if the program hasn't said
@@ -86,7 +93,6 @@ static bool time_now(uint16_t *date, uint16_t *time)
     *time = 0;
     return false;
 }
-static fat32_lfn_entry_t lfn_buffer[MAX_LFN_PART]; // Buffer for long file name entries
 
 // Timer for SD card detection
 static repeating_timer_t sd_card_detect_timer;
@@ -1085,7 +1091,8 @@ static fat32_error_t unlink_entry(fat32_entry_t *entry)
     return FAT32_OK;
 }
 
-static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
+// dated: the entry whose dates to keep (a rename), or NULL to date it now
+static fat32_error_t link_entry(fat32_entry_t *entry, const char *path, const fat32_dir_entry_t *dated)
 {
     if (!entry || !path)
     {
@@ -1268,25 +1275,34 @@ static fat32_error_t link_entry(fat32_entry_t *entry, const char *path)
         }
     }
 
-    // A new entry is dated now; a renamed one keeps the date it had
-    uint16_t date = entry->date, time = entry->time;
-    if (date == 0)
-    {
-        time_now(&date, &time);
-    }
-
     // Write 8.3 entry
     fat32_dir_entry_t dir_entry = {0};
     memcpy(dir_entry.shortname, shortname, 11);
     dir_entry.attr = entry->attr; // Normal file
     dir_entry.nt_res = 0;
-    dir_entry.crt_time_tenth = 0;
-    dir_entry.crt_time = time;
-    dir_entry.crt_date = date;
-    dir_entry.lst_acc_date = date;
+    if (dated)
+    {
+        // A renamed entry keeps the dates it had, even none
+        dir_entry.crt_time_tenth = dated->crt_time_tenth;
+        dir_entry.crt_time = dated->crt_time;
+        dir_entry.crt_date = dated->crt_date;
+        dir_entry.lst_acc_date = dated->lst_acc_date;
+        dir_entry.wrt_time = dated->wrt_time;
+        dir_entry.wrt_date = dated->wrt_date;
+    }
+    else
+    {
+        // A new entry is dated now
+        uint16_t date, time;
+        time_now(&date, &time);
+        dir_entry.crt_time_tenth = 0;
+        dir_entry.crt_time = time;
+        dir_entry.crt_date = date;
+        dir_entry.lst_acc_date = date;
+        dir_entry.wrt_time = time;
+        dir_entry.wrt_date = date;
+    }
     dir_entry.fst_clus_hi = entry->start_cluster >> 16;
-    dir_entry.wrt_time = time;
-    dir_entry.wrt_date = date;
     dir_entry.fst_clus_lo = entry->start_cluster & 0xFFFF;
     dir_entry.file_size = entry->size;
 
@@ -1315,7 +1331,7 @@ static fat32_error_t new_entry(fat32_file_t *file, const char *path, uint8_t att
     memset(&entry, 0, sizeof(fat32_entry_t));
     entry.attr = attr;
 
-    RETURN_ON_ERROR(link_entry(&entry, path));
+    RETURN_ON_ERROR(link_entry(&entry, path, NULL));
 
     file->is_open = true;
     file->start_cluster = entry.start_cluster;
@@ -1773,8 +1789,13 @@ fat32_error_t fat32_rename(const char *old_path, const char *new_path)
     }
 
     // Rename by deleting the old entry and creating a new one with the same start cluster
+    // Keep the old entry's dates, which find_entry() doesn't all carry
+    RETURN_ON_ERROR(read_sector(entry.sector, sector_buffer));
+    fat32_dir_entry_t old_entry;
+    memcpy(&old_entry, sector_buffer + entry.offset, sizeof(old_entry));
+
     RETURN_ON_ERROR(unlink_entry(&entry));
-    RETURN_ON_ERROR(link_entry(&entry, new_path));
+    RETURN_ON_ERROR(link_entry(&entry, new_path, &old_entry));
 
     return FAT32_OK;
 }
