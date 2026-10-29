@@ -9,6 +9,10 @@
 #include "pico/util/datetime.h"
 #include "pico/time.h"
 
+#if PICO_RP2350
+#include "picocalc_shell.h" // Only the RP2350 runs the shell
+#endif
+
 #include "drivers/southbridge.h"
 #include "drivers/audio.h"
 #include "drivers/sdcard.h"
@@ -33,6 +37,7 @@ static const command_t commands[] = {
     {"cls", clearscreen, "Clear the screen"},
     {"cd", cd, "Change directory ('/' path sep.)"},
     {"dir", dir, "List files on the SD card"},
+    {"exit", shell_exit, "Return to the PicoCalc shell"},
     {"free", sd_free, "Show free space on the SD card"},
     {"mkdir", sd_mkdir, "Create a new directory"},
     {"mkfile", sd_mkfile, "Create a new file"},
@@ -420,6 +425,22 @@ void bye()
 {
     printf("Exiting...\n");
     rom_reset_usb_boot(0, 0);
+}
+
+void shell_exit()
+{
+#if PICO_RP2350
+    // Files must be closed first; the REPL keeps none open between commands
+    printf("Returning to the shell...\n");
+    if (!picocalc_shell_exit())
+    {
+        // It only returns when there is no shell to go back to
+        printf("Cannot return to the shell.\n");
+        printf("The shell needs UF2 Loader to have\nstarted this program, and the\nshell on the SD card.\n");
+    }
+#else
+    printf("The PicoCalc shell needs an RP2350.\n");
+#endif
 }
 
 void clearscreen()

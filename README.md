@@ -16,7 +16,7 @@ This starter includes drivers for:
 - Serial port
 - SD Card (FAT12, FAT16, FAT32 and exFAT, using [FatFs](http://elm-chan.org/fsw/ff/))
 - Southbridge functions (keyboard, battery, backlights, power)
-- The [PicoCalc shell](https://github.com/BlairLeduc/picocalc-shell) on an RP2350: date files with its clock
+- The [PicoCalc shell](https://github.com/BlairLeduc/picocalc-shell) on an RP2350: return to it, and date files with its clock
 
 See below for more information on integration with the C standard library and the REPL provided to demonstrate the drivers.
 
@@ -108,11 +108,14 @@ int main()
 
 # PicoCalc Shell
 
-On an RP2350 (Pico 2, Pico 2 W, Pico Plus 2), a program can be started from the [PicoCalc shell](https://github.com/BlairLeduc/picocalc-shell) (v1.1 or later). This starter then dates the files it writes with the time the shell keeps, in the shell's time zone (see [File System](docs/filesystem.md#fs_set_time_source)).
+On an RP2350 (Pico 2, Pico 2 W, Pico Plus 2), a program can be started from the [PicoCalc shell](https://github.com/BlairLeduc/picocalc-shell) (v1.1 or later). This starter then:
 
-The time comes from the shell's header, `third_party/picocalc-shell/picocalc_shell.h`, which needs the program to link `hardware_powman` (`CMakeLists.txt` does this on an RP2350).
+- dates the files it writes with the time the shell keeps, in the shell's time zone (see [File System](docs/filesystem.md#fs_set_time_source))
+- returns to the shell with the REPL's **exit** command, which calls `picocalc_shell_exit()`
 
-Started any other way, such as copied on in BOOTSEL, files are left undated. On an RP2040, the shell's header is left out of the build.
+Both come from the shell's header, `third_party/picocalc-shell/picocalc_shell.h`, which needs the program to link `hardware_powman` for the time (`CMakeLists.txt` does this on an RP2350). Close your files before returning to the shell: the reboot doesn't wait for them.
+
+Started any other way, such as copied on in BOOTSEL, files are left undated and **exit** says it cannot return. On an RP2040, the shell's header is left out of the build.
 
 
 # Starter Demonstration REPL
@@ -134,6 +137,7 @@ These commands provide examples of how to use the drivers:
 - **cls** – Clears the display
 - **cd** – Change the current directory
 - **dir** – Display the contents of the current directory
+- **exit** – Return to the [PicoCalc shell](https://github.com/BlairLeduc/picocalc-shell) (RP2350 only, when the shell started the program)
 - **free** – Shows the free space remaining on the SD card
 - **mkdir** – Create a new directory
 - **mkfile** – Create a new file

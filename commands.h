@@ -18,6 +18,7 @@ void battery(void);
 void beep(void);
 void box(void);
 void bye(void);
+void shell_exit(void);
 void cd(void);
 void clearscreen(void);
 void dir(void);
