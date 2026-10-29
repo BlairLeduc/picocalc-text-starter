@@ -57,6 +57,17 @@ If you are using [Visual Studio Code](https://code.visualstudio.com) and the [Ra
 
 **Always use the latest Pico SDK**. This starter is designed to work with the latest Pico SDK. If you are using an older version, you may need to update your SDK or modify the code to work with the older version. The file system, FatFs, comes with the Pico SDK, so there is nothing else to install.
 
+## Building from the command line
+
+On macOS or Linux, `./build.sh` builds the firmware into `build/picocalc-text-starter.uf2`. It uses the SDK and tools the VS Code extension installs in `~/.pico-sdk`, at the versions `CMakeLists.txt` names, so the result matches a build in VS Code. Set `PICO_SDK_PATH` to use your own SDK instead.
+
+```
+./build.sh              # build for the board CMakeLists.txt sets (or the last one built)
+./build.sh -b pico2_w   # build for another board
+./build.sh -c           # clean build
+./build.sh -h           # all the options
+```
+
 
 # Standard C Library
 
