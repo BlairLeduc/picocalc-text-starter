@@ -14,8 +14,9 @@ This starter includes drivers for:
 - Display (multicolour text with ANSI escape code emulation)
 - Keyboard
 - Serial port
-- SD Card (FAT32 file system only)
+- SD Card (FAT12, FAT16, FAT32 and exFAT, using [FatFs](http://elm-chan.org/fsw/ff/))
 - Southbridge functions (keyboard, battery, backlights, power)
+- The [PicoCalc shell](https://github.com/BlairLeduc/picocalc-shell) on an RP2350: date files with its clock
 
 See below for more information on integration with the C standard library and the REPL provided to demonstrate the drivers.
 
@@ -37,7 +38,7 @@ Hello, world!
 
 int main()
 {
-    picocalc_init(NULL);
+    picocalc_init();
 
     // Your project starts here
     printf("Hello, world!\n");
@@ -54,7 +55,7 @@ If you are using [Visual Studio Code](https://code.visualstudio.com) and the [Ra
 > [!TIP]
 > Make sure you update `CMakeLists.txt` to set the board to the Pico you are using (PICO_BOARD) and update the WiFi board list at the end of the file if you are using a third-party board. 
 
-**Always use the latest Pico SDK**. This starter is designed to work with the latest Pico SDK. If you are using an older version, you may need to update your SDK or modify the code to work with the older version.
+**Always use the latest Pico SDK**. This starter is designed to work with the latest Pico SDK. If you are using an older version, you may need to update your SDK or modify the code to work with the older version. The file system, FatFs, comes with the Pico SDK, so there is nothing else to install.
 
 
 # Standard C Library
@@ -69,7 +70,7 @@ int main()
 {
     char buffer[100];
 
-    picocalc_init(NULL);
+    picocalc_init();
 
     printf("Enter your name: ");
     scanf("%99s", buffer);
@@ -79,7 +80,7 @@ int main()
 }
 ```
 
-If you want to use standard C library file I/O functions, include `drivers/clib.c` in your project. This will allow you to use `fopen`, `fread`, `fwrite`, and other file I/O functions with the SD card.
+If you want to use standard C library file I/O functions, include `drivers/clib.c` in your project. This will allow you to use `fopen`, `fread`, `fwrite`, `fseek`, `remove`, `rename`, `stat`, `mkdir` and the other file functions with the SD card, with up to 16 files open at once. To list a directory or change the current directory, call FatFs directly; see [File System](docs/filesystem.md).
 
 ``` C
 #include <stdio.h>
@@ -87,7 +88,7 @@ If you want to use standard C library file I/O functions, include `drivers/clib.
 
 int main()
 {
-    picocalc_init(NULL);
+    picocalc_init();
 
     FILE *fp = fopen("/test.txt", "w+");
     if (fp)
@@ -103,6 +104,15 @@ int main()
     return 0;
 }
 ```
+
+
+# PicoCalc Shell
+
+On an RP2350 (Pico 2, Pico 2 W, Pico Plus 2), a program can be started from the [PicoCalc shell](https://github.com/BlairLeduc/picocalc-shell) (v1.1 or later). This starter then dates the files it writes with the time the shell keeps, in the shell's time zone (see [File System](docs/filesystem.md#fs_set_time_source)).
+
+The time comes from the shell's header, `third_party/picocalc-shell/picocalc_shell.h`, which needs the program to link `hardware_powman` (`CMakeLists.txt` does this on an RP2350).
+
+Started any other way, such as copied on in BOOTSEL, files are left undated. On an RP2040, the shell's header is left out of the build.
 
 
 # Starter Demonstration REPL
@@ -165,7 +175,7 @@ Tests to make sure the hardware and drivers are working correctly.
 - **display** – Display driver stress test with scrolling lines of different colours, writing ANSI escape codes and characters as quickly as possible. Note: characters processed includes the processing of escape squences where characters displayed are the number of characters drawn on the display.
 - **keyboard** – Test the keyboard driver by pressing keys and displaying the key codes. Press 'Brk' to exit the test.
 - **lcd** – Basic test of the LCD driver.
-- **fat32** – Test the FAT32 driver with different file operations (create, read, write, delete) and verify the integrity of the file system.
+- **fs** – Test the file system with different file operations (create, read, write, delete) and verify the integrity of the file system.
 
 
 # High-Level Drivers
@@ -175,7 +185,7 @@ Documentation for the high-level drivers. These drivers use low-level drivers to
 - [PicoCalc](docs/picocalc.md) – pseudo driver configures the southbridge, display and keyboard drivers
 - [Display](docs/display.md) – emulates an ANSI terminal
 - [Keyboard](docs/keyboard.md) – uses a timer loop that polls the PicoCalc's southbridge for key presses
-- [FAT32](docs/fat32.md) – read and write from an SD card formatted with FAT32
+- [File System](docs/filesystem.md) – read and write files on the SD card with ChaN's FatFs (replaces the FAT32 driver of v0.16 and earlier)
 
 
 # Low-Level Drivers

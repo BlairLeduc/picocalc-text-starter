@@ -33,6 +33,27 @@ project(picocalc-text-starter C CXX ASM)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
+# ChaN's FatFs (http://elm-chan.org/fsw/ff/) for the SD card. The Pico SDK
+# carries a copy for TinyUSB. ff.h includes "ffconf.h" from its own
+# directory, so the sources are copied into the build tree beside our
+# drivers/fatfs/ffconf.h rather than compiled in place (which would find
+# TinyUSB's configuration).
+set(FATFS_SRC ${PICO_SDK_PATH}/lib/tinyusb/lib/fatfs/source)
+set(FATFS_DIR ${CMAKE_BINARY_DIR}/fatfs)
+foreach(f ff.c ff.h ffunicode.c diskio.h)
+    if (NOT EXISTS ${FATFS_SRC}/${f})
+        message(FATAL_ERROR "FatFs ${f} not found in ${FATFS_SRC}")
+    endif()
+    configure_file(${FATFS_SRC}/${f} ${FATFS_DIR}/${f} COPYONLY)
+endforeach()
+configure_file(drivers/fatfs/ffconf.h ${FATFS_DIR}/ffconf.h COPYONLY)
+
+add_library(fatfs STATIC
+        ${FATFS_DIR}/ff.c
+        ${FATFS_DIR}/ffunicode.c
+        )
+target_include_directories(fatfs PUBLIC ${FATFS_DIR})
+
 
 # Add executable. Default name is the project name, version 0.1
 
@@ -47,10 +68,11 @@ add_executable(picocalc-text-starter
         drivers/audio.c
         drivers/audio.h
         drivers/clib.c
+        drivers/diskio.c
         drivers/display.c
         drivers/display.h
-        drivers/fat32.c
-        drivers/fat32.h
+        drivers/filesystem.c
+        drivers/filesystem.h
         drivers/font-5x10.c
         drivers/font-8x10.c
         drivers/font.h
@@ -84,12 +106,20 @@ target_compile_options(picocalc-text-starter PRIVATE -Wall -Werror)
 
 # Add the standard library to the build
 target_link_libraries(picocalc-text-starter
-        pico_stdlib)
+        pico_stdlib
+        fatfs)
 
 # Add the standard include files to the build
 target_include_directories(picocalc-text-starter PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
+        ${CMAKE_CURRENT_LIST_DIR}/third_party/picocalc-shell
 )
+
+# The PicoCalc shell's clock, for file dates, is in the RP2350's always-on
+# timer (POWMAN). The RP2040 has none, and its files are left undated.
+if (TARGET hardware_powman)
+    target_link_libraries(picocalc-text-starter hardware_powman)
+endif()
 MESSAGE( STATUS "cmake current list dir: ${CMAKE_CURRENT_LIST_DIR}" )
 
 # Add any user requested libraries

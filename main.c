@@ -63,7 +63,7 @@ int main()
 
     // Initialize the LED driver and set the LED callback
     // If the LED driver fails to initialize, we can still run the text starter
-    // without LED support, so we pass NULL to picocalc_init.
+    // without LED support, so the callback is only set when it succeeds.
     int led_init_result = led_init();
 
     stdio_init_all();
