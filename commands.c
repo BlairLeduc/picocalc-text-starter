@@ -9,10 +9,14 @@
 #include "pico/util/datetime.h"
 #include "pico/time.h"
 
+#if PICO_RP2350
+#include "picocalc_shell.h" // Only the RP2350 runs the shell
+#endif
+
 #include "drivers/southbridge.h"
 #include "drivers/audio.h"
 #include "drivers/sdcard.h"
-#include "drivers/fat32.h"
+#include "drivers/filesystem.h"
 #include "drivers/lcd.h"
 #include "drivers/keyboard.h"
 #include "songs.h"
@@ -33,6 +37,7 @@ static const command_t commands[] = {
     {"cls", clearscreen, "Clear the screen"},
     {"cd", cd, "Change directory ('/' path sep.)"},
     {"dir", dir, "List files on the SD card"},
+    {"exit", shell_exit, "Return to the PicoCalc shell"},
     {"free", sd_free, "Show free space on the SD card"},
     {"mkdir", sd_mkdir, "Create a new directory"},
     {"mkfile", sd_mkfile, "Create a new file"},
@@ -422,6 +427,22 @@ void bye()
     rom_reset_usb_boot(0, 0);
 }
 
+void shell_exit()
+{
+#if PICO_RP2350
+    // Files must be closed first; the REPL keeps none open between commands
+    printf("Returning to the shell...\n");
+    if (!picocalc_shell_exit())
+    {
+        // It only returns when there is no shell to go back to
+        printf("Cannot return to the shell.\n");
+        printf("The shell needs UF2 Loader to have\nstarted this program, and the\nshell on the SD card.\n");
+    }
+#else
+    printf("The PicoCalc shell needs an RP2350.\n");
+#endif
+}
+
 void clearscreen()
 {
     printf("\033[2J\033[H"); // ANSI escape code to clear the screen
@@ -563,48 +584,59 @@ void sd_status()
         return;
     }
 
-    fat32_error_t mount_status = fat32_get_status();
-    if (mount_status != FAT32_OK)
+    // Mounting happens on first use; the volume label is the first use here
+    char buffer[34];
+    FRESULT result = f_getlabel("", buffer, NULL);
+    if (result != FR_OK)
     {
         printf("SD card inserted, but unreadable.\n");
-        printf("Error: %s\n", fat32_error_string(mount_status));
+        printf("Error: %s\n", fs_error_string(result));
         return;
     }
 
-    uint64_t total_space;
-    fat32_error_t result = fat32_get_total_space(&total_space);
-    if (result != FAT32_OK)
+    // f_getfree gives the mounted volume (and may have to count free
+    // clusters, which can take a few seconds on a big card)
+    FATFS *fs;
+    DWORD free_clusters;
+    result = f_getfree("", &free_clusters, &fs);
+    if (result != FR_OK)
     {
         printf("SD card inserted, unable to get total space.\n");
-        printf("Error: %s\n", fat32_error_string(result));
+        printf("Error: %s\n", fs_error_string(result));
         return;
     }
-    char buffer[32];
-    fat32_get_volume_name(buffer, sizeof(buffer));
+
+    static const char *const fs_types[] = {"?", "FAT12", "FAT16", "FAT32", "exFAT"};
+    uint32_t cluster_size = fs->csize * FF_MIN_SS;
+    uint64_t total_space = (uint64_t)(fs->n_fatent - 2) * cluster_size;
+
     printf("SD card inserted, ready to use.\n");
     printf("  Volume name: %s\n", buffer[0] ? buffer : "No volume label");
     get_str_size(buffer, sizeof(buffer), total_space);
     printf("  Capacity: %s\n", buffer);
     bool is_sdhc = sd_is_sdhc();
-    printf("  Type: %s\n", is_sdhc ? "SDHC" : "SDSC");
-    get_str_size(buffer, sizeof(buffer), fat32_get_cluster_size());
+    printf("  Type: %s, %s\n", is_sdhc ? "SDHC" : "SDSC",
+           fs->fs_type <= FS_EXFAT ? fs_types[fs->fs_type] : "?");
+    get_str_size(buffer, sizeof(buffer), cluster_size);
     printf("  Cluster size: %s\n", buffer);
 }
 
 void sd_free()
 {
-    uint64_t free_space;
-    sd_error_t result = fat32_get_free_space(&free_space);
+    FATFS *fs;
+    DWORD free_clusters;
+    FRESULT result = f_getfree("", &free_clusters, &fs);
 
-    if (result == SD_OK)
+    if (result == FR_OK)
     {
         char size_buffer[32];
-        get_str_size(size_buffer, sizeof(size_buffer), free_space);
+        get_str_size(size_buffer, sizeof(size_buffer),
+                     (uint64_t)free_clusters * fs->csize * FF_MIN_SS);
         printf("Free space on SD card: %s\n", size_buffer);
     }
     else
     {
-        printf("Error: %s\n", fat32_error_string(result));
+        printf("Error: %s\n", fs_error_string(result));
     }
 }
 
@@ -623,21 +655,21 @@ void cd_dirname(const char *dirname)
         return;
     }
 
-    sd_error_t result = fat32_set_current_dir(dirname);
-    if (result != SD_OK)
+    FRESULT result = f_chdir(dirname);
+    if (result != FR_OK)
     {
-        printf("Error: %s\n", fat32_error_string(result));
+        printf("Error: %s\n", fs_error_string(result));
         return;
     }
 }
 
 void sd_pwd()
 {
-    char current_dir[FAT32_MAX_PATH_LEN];
-    sd_error_t result = fat32_get_current_dir(current_dir, sizeof(current_dir));
-    if (result != SD_OK)
+    char current_dir[FS_MAX_PATH_LEN];
+    FRESULT result = f_getcwd(current_dir, sizeof(current_dir));
+    if (result != FR_OK)
     {
-        printf("Error: %s\n", fat32_error_string(result));
+        printf("Error: %s\n", fs_error_string(result));
         return;
     }
     printf("%s\n", current_dir);
@@ -650,46 +682,48 @@ void dir()
 
 void sd_dir_dirname(const char *dirname)
 {
-    fat32_file_t dir;
-    fat32_entry_t dir_entry;
+    DIR dir;
+    FILINFO dir_entry;
 
-    fat32_error_t result = fat32_open(&dir, dirname);
-    if (result != FAT32_OK)
+    FRESULT result = f_opendir(&dir, dirname);
+    if (result != FR_OK)
     {
-        printf("Error: %s\n", fat32_error_string(result));
+        printf("Error: %s\n", fs_error_string(result));
         return;
     }
 
-    do
+    while (true)
     {
-        result = fat32_dir_read(&dir, &dir_entry);
-        if (result != FAT32_OK)
+        result = f_readdir(&dir, &dir_entry);
+        if (result != FR_OK)
         {
-            printf("Error: %s\n", fat32_error_string(result));
-            return;
+            printf("Error: %s\n", fs_error_string(result));
+            break;
         }
-        if (dir_entry.filename[0])
+        if (!dir_entry.fname[0])
         {
-            if (dir_entry.attr & (FAT32_ATTR_VOLUME_ID | FAT32_ATTR_HIDDEN | FAT32_ATTR_SYSTEM))
-            {
-                // It's a volume label, hidden file, or system file, skip it
-                continue;
-            }
-            else if (dir_entry.attr & FAT32_ATTR_DIRECTORY)
-            {
-                // It's a directory, append '/' to the name
-                printf("%s/\n", dir_entry.filename);
-            }
-            else
-            {
-                char size_buffer[16];
-                get_str_size(size_buffer, sizeof(size_buffer), dir_entry.size);
-                printf("%-28s %10s\n", dir_entry.filename, size_buffer);
-            }
+            break; // End of directory
         }
-    } while (dir_entry.filename[0]);
 
-    fat32_close(&dir);
+        if (dir_entry.fattrib & (AM_HID | AM_SYS))
+        {
+            // It's a hidden file, or system file, skip it
+            continue;
+        }
+        else if (dir_entry.fattrib & AM_DIR)
+        {
+            // It's a directory, append '/' to the name
+            printf("%s/\n", dir_entry.fname);
+        }
+        else
+        {
+            char size_buffer[16];
+            get_str_size(size_buffer, sizeof(size_buffer), dir_entry.fsize);
+            printf("%-28s %10s\n", dir_entry.fname, size_buffer);
+        }
+    }
+
+    f_closedir(&dir);
 }
 
 void sd_more()
@@ -866,16 +900,14 @@ void sd_mkdir_filename(const char *dirname)
         return;
     }
 
-    fat32_file_t dir;
-    fat32_error_t result = fat32_dir_create(&dir, dirname);
-    if (result != FAT32_OK)
+    FRESULT result = f_mkdir(dirname);
+    if (result != FR_OK)
     {
-        printf("Error: %s\n", fat32_error_string(result));
+        printf("Error: %s\n", fs_error_string(result));
         return;
     }
 
     printf("Directory '%s' created.\n", dirname);
-    fat32_close(&dir);
 }
 
 void sd_rm()
@@ -895,10 +927,10 @@ void sd_rm_filename(const char *filename)
         return;
     }
 
-    fat32_error_t result = fat32_delete(filename);
-    if (result != FAT32_OK)
+    FRESULT result = f_unlink(filename);
+    if (result != FR_OK)
     {
-        printf("Error: %s\n", fat32_error_string(result));
+        printf("Error: %s\n", fs_error_string(result));
         return;
     }
 
@@ -922,10 +954,10 @@ void sd_rmdir_dirname(const char *dirname)
         return;
     }
 
-    fat32_error_t result = fat32_delete(dirname);
-    if (result != FAT32_OK)
+    FRESULT result = f_unlink(dirname);
+    if (result != FR_OK)
     {
-        printf("Error: %s\n", fat32_error_string(result));
+        printf("Error: %s\n", fs_error_string(result));
         return;
     }
 
@@ -950,7 +982,7 @@ void sd_mv_filename(const char *oldname, const char *newname)
     }
 
     struct stat st;
-    char full_newname[FAT32_MAX_PATH_LEN];
+    char full_newname[FS_MAX_PATH_LEN];
 
     if (stat(newname, &st) == 0 && S_ISDIR(st.st_mode))
     {

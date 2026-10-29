@@ -5,7 +5,7 @@
 #include "audio.h"
 #include "display.h"
 #include "keyboard.h"
-#include "fat32.h"
+#include "filesystem.h"
 #include "southbridge.h"
 
 // Callback for when characters become available
@@ -69,7 +69,7 @@ void picocalc_init()
     keyboard_set_key_available_callback(picocalc_chars_available_notify);
     keyboard_set_background_poll(true);
     audio_init();
-    fat32_init();
+    fs_init();
 
     stdio_set_driver_enabled(&picocalc_stdio_driver, true);
     stdio_set_translate_crlf(&picocalc_stdio_driver, true);
