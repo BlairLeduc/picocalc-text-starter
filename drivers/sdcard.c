@@ -105,9 +105,9 @@ static uint8_t sd_send_command(uint8_t cmd, uint32_t arg)
 
     // Send command (a busy card ignores it, and its low data line would read as an R1 of 0)
     sd_cs_select();
-    if (cmd != SD_CMD0)
+    if (cmd != SD_CMD0 && !sd_wait_ready())
     {
-        sd_wait_ready();
+        return 0xFF; // Still busy: the command would be ignored, so do not send it
     }
     sd_spi_write_buf(packet, 6);
 
