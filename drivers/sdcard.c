@@ -213,30 +213,109 @@ sd_error_t sd_write_block(uint32_t block, const uint8_t *buffer)
     return ready ? SD_OK : SD_ERROR_WRITE_FAILED;
 }
 
+// CMD18 reads blocks one after another until CMD12 stops it: one command for
+// the lot instead of one per block, which is how FatFs reads a cluster.
 sd_error_t sd_read_blocks(uint32_t start_block, uint32_t num_blocks, uint8_t *buffer)
 {
-    for (uint32_t i = 0; i < num_blocks; i++)
+    if (num_blocks == 1)
     {
-        sd_error_t result = sd_read_block(start_block + i, buffer + (i * SD_BLOCK_SIZE));
-        if (result != SD_OK)
-        {
-            return result;
-        }
+        return sd_read_block(start_block, buffer);
     }
-    return SD_OK;
+    uint32_t addr = is_sdhc ? start_block : start_block * SD_BLOCK_SIZE;
+    uint8_t response = sd_send_command(SD_CMD18, addr);
+    if (response != 0)
+    {
+        sd_cs_deselect();
+        return SD_ERROR_READ_FAILED;
+    }
+
+    sd_error_t result = SD_OK;
+    for (uint32_t i = 0; i < num_blocks && result == SD_OK; i++)
+    {
+        uint32_t timeout = 100000;
+        do
+        {
+            response = sd_spi_write_read(0xFF);
+            timeout--;
+        } while (response != SD_DATA_START_BLOCK && timeout > 0);
+        if (timeout == 0)
+        {
+            result = SD_ERROR_READ_FAILED;
+            break;
+        }
+        sd_spi_read_buf(buffer + (i * SD_BLOCK_SIZE), SD_BLOCK_SIZE);
+        sd_spi_write_read(0xFF); // CRC (ignored)
+        sd_spi_write_read(0xFF);
+    }
+
+    // Stop the transfer. The byte after CMD12 is a stuff byte; then R1.
+    uint8_t packet[6] = {0x40 | SD_CMD12, 0, 0, 0, 0, 0xFF};
+    sd_spi_write_buf(packet, 6);
+    sd_spi_write_read(0xFF);
+    uint8_t retry = 0;
+    do
+    {
+        response = sd_spi_write_read(0xFF);
+    } while ((response & 0x80) && ++retry < 64);
+    bool ready = sd_wait_ready();
+    sd_cs_deselect();
+
+    if (result != SD_OK)
+    {
+        return result;
+    }
+    return (response == 0 && ready) ? SD_OK : SD_ERROR_READ_FAILED;
 }
 
+// CMD25 writes blocks one after another, each behind its own token, until the
+// stop token: the card programs them together, which is far quicker than a
+// CMD24 and a wait for each (how FatFs writes a cluster, and an upload).
 sd_error_t sd_write_blocks(uint32_t start_block, uint32_t num_blocks, const uint8_t *buffer)
 {
+    if (num_blocks == 1)
+    {
+        return sd_write_block(start_block, buffer);
+    }
+    uint32_t addr = is_sdhc ? start_block : start_block * SD_BLOCK_SIZE;
+    uint8_t response = sd_send_command(SD_CMD25, addr);
+    if (response != 0)
+    {
+        sd_cs_deselect();
+        return SD_ERROR_WRITE_FAILED;
+    }
+
+    sd_error_t result = SD_OK;
     for (uint32_t i = 0; i < num_blocks; i++)
     {
-        sd_error_t result = sd_write_block(start_block + i, buffer + (i * SD_BLOCK_SIZE));
-        if (result != SD_OK)
+        sd_spi_write_read(0xFF);
+        sd_spi_write_read(SD_DATA_START_BLOCK_MULT);
+        sd_spi_write_buf(buffer + (i * SD_BLOCK_SIZE), SD_BLOCK_SIZE);
+        sd_spi_write_read(0xFF); // dummy CRC
+        sd_spi_write_read(0xFF);
+        if ((sd_spi_write_read(0xFF) & 0x1F) != 0x05)
         {
-            return result;
+            result = SD_ERROR_WRITE_FAILED;
+            break;
+        }
+        if (!sd_wait_ready()) // the card takes the block in
+        {
+            result = SD_ERROR_WRITE_FAILED;
+            break;
         }
     }
-    return SD_OK;
+
+    // The stop token is sent whatever happened, so the card is never left
+    // mid-transfer; it is busy after it until everything is written.
+    sd_spi_write_read(SD_DATA_STOP_MULT);
+    sd_spi_write_read(0xFF);
+    bool ready = sd_wait_ready();
+    sd_cs_deselect();
+
+    if (result != SD_OK)
+    {
+        return result;
+    }
+    return ready ? SD_OK : SD_ERROR_WRITE_FAILED;
 }
 
 //
