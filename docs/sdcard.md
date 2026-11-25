@@ -63,7 +63,7 @@ Write a block to the SD card. Returns SD_OK if successful, an error code if not.
 
 `sd_error_t sd_read_blocks(uint32_t start_block, uint32_t num_blocks, uint8_t *buffer)`
 
-Reads a continuous series of blocks from the SD card. 
+Reads a continuous series of blocks from the SD card, with one READ_MULTIPLE_BLOCK command (CMD18) for the series.
 
 ### Parameters
 
@@ -76,7 +76,7 @@ Reads a continuous series of blocks from the SD card.
 
 `sd_error_t sd_write_blocks(uint32_t start_block, uint32_t num_blocks, const uint8_t *buffer)`
 
-Writes a continuous series of blocks to the SD card. 
+Writes a continuous series of blocks to the SD card, with one WRITE_MULTIPLE_BLOCK command (CMD25) for the series, so the card programs them together rather than one at a time.
 
 ### Parameters
 
